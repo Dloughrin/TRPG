@@ -1,0 +1,6 @@
+Duelist
+General
+Sage
+Rogue
+Knight
+Mage
