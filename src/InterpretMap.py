@@ -43,12 +43,6 @@ class TileMap:
                 elif cell[0] == 'T':
                     #if T, it's a group of trees or underbrush
                     tileRow.append(Tile(0,1,0,1,cell))
-                elif cell[-1] == 'E':
-                    #enemy
-                    tileRow.append(Tile(1,0,0,0,cell))
-                elif cell[-1] == 'B':
-                    #enemy
-                    tileRow.append(Tile(1,0,0,0,cell))
                 else:
                     #otherwise, character or something
                     tileRow.append(Tile(0,0,0,0,cell))

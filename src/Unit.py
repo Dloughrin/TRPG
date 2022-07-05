@@ -134,14 +134,14 @@ class MagicUnit(Unit):
     
     def __set_maximum_stats(self, personalGrowths):
         self.max_stats = {
-                "HP"     : 55   + int(55*(personalGrowths[0]/100)),
-                "str"    : 50   + int(50*(personalGrowths[1]/150)),
-                "mag"    : 70   + int(70*(personalGrowths[2]/150)),
-                "skl"    : 60   + int(60*(personalGrowths[3]/150)),
-                "spd"    : 60   + int(60*(personalGrowths[4]/150)),
-                "lck"    : 80   + int(80*(personalGrowths[5]/150)),
-                "def"    : 60   + int(60*(personalGrowths[6]/150)),
-                "res"    : 70   + int(70*(personalGrowths[7]/150))
+                "HP"     : min(99,55   + int(55*(personalGrowths[0]/100))),
+                "str"    : min(99,50   + int(50*(personalGrowths[1]/150))),
+                "mag"    : min(99,70   + int(70*(personalGrowths[2]/150))),
+                "skl"    : min(99,60   + int(60*(personalGrowths[3]/150))),
+                "spd"    : min(99,60   + int(60*(personalGrowths[4]/150))),
+                "lck"    : min(99,80   + int(80*(personalGrowths[5]/150))),
+                "def"    : min(99,60   + int(60*(personalGrowths[6]/150))),
+                "res"    : min(99,70   + int(70*(personalGrowths[7]/150)))
             }
             
     def __set_growths(self,personalGrowths):
@@ -214,14 +214,14 @@ class InfantryUnit(Unit):
     
     def __set_maximum_stats(self, personalGrowths):
         self.max_stats = {
-                "HP"     : 60   + int(60*(personalGrowths[0]/100)),
-                "str"    : 60   + int(60*(personalGrowths[1]/150)),
-                "mag"    : 50   + int(50*(personalGrowths[2]/150)),
-                "skl"    : 70   + int(70*(personalGrowths[3]/150)),
-                "spd"    : 70   + int(70*(personalGrowths[4]/150)),
-                "lck"    : 80   + int(80*(personalGrowths[5]/150)),
-                "def"    : 55   + int(70*(personalGrowths[6]/150)),
-                "res"    : 60   + int(70*(personalGrowths[7]/150))
+                "HP"     : min(99,60   + int(60*(personalGrowths[0]/100))),
+                "str"    : min(99,60   + int(60*(personalGrowths[1]/150))),
+                "mag"    : min(99,50   + int(50*(personalGrowths[2]/150))),
+                "skl"    : min(99,70   + int(70*(personalGrowths[3]/150))),
+                "spd"    : min(99,70   + int(70*(personalGrowths[4]/150))),
+                "lck"    : min(99,80   + int(80*(personalGrowths[5]/150))),
+                "def"    : min(99,55   + int(70*(personalGrowths[6]/150))),
+                "res"    : min(99,60   + int(70*(personalGrowths[7]/150)))
             }
         
     def __set_growths(self,personalGrowths):
@@ -294,14 +294,14 @@ class MountedUnit(Unit):
     
     def __set_maximum_stats(self, personalGrowths):
         self.max_stats = {
-                "HP"     : 70   + int(70*(personalGrowths[0]/100)),
-                "str"    : 60   + int(60*(personalGrowths[1]/150)),
-                "mag"    : 40   + int(40*(personalGrowths[2]/150)),
-                "skl"    : 60   + int(60*(personalGrowths[3]/150)),
-                "spd"    : 55   + int(55*(personalGrowths[4]/150)),
-                "lck"    : 80   + int(80*(personalGrowths[5]/150)),
-                "def"    : 70   + int(70*(personalGrowths[6]/150)),
-                "res"    : 70   + int(70*(personalGrowths[7]/150))
+                "HP"     : min(99,70   + int(70*(personalGrowths[0]/100))),
+                "str"    : min(99,60   + int(60*(personalGrowths[1]/150))),
+                "mag"    : min(99,40   + int(40*(personalGrowths[2]/150))),
+                "skl"    : min(99,60   + int(60*(personalGrowths[3]/150))),
+                "spd"    : min(99,55   + int(55*(personalGrowths[4]/150))),
+                "lck"    : min(99,80   + int(80*(personalGrowths[5]/150))),
+                "def"    : min(99,70   + int(70*(personalGrowths[6]/150))),
+                "res"    : min(99,70   + int(70*(personalGrowths[7]/150)))
             }
         
     def __set_growths(self,personalGrowths):
@@ -350,8 +350,9 @@ class MountedUnit(Unit):
         
 
 class UnitGenerator:
-    unit_classes = ["duelist", "rogue", "sage",
-                    "mage", "general", "knight"]
+    unit_classes = ["Duelist", "Soldier", "Rogue", "Assassin",
+                    "Sage", "Mage", "General", "Knight"]
+    tokenSize = 70
     
     @staticmethod
     def create_unit(name, unitClass, icon, portrait, boss=0):
@@ -365,15 +366,32 @@ class UnitGenerator:
                     x += 10
             personalStats.extend((1,1,0,3,2,1,1,1)) 
             return InfantryUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
-        elif unitClass.lower() == 'rogue':
-            personalGrowths.extend((0,15,10,25,60,40,0,0)) 
+        elif unitClass.lower() == 'soldier':
+            personalGrowths.extend((30,25,0,5,30,0,40,20)) 
             if boss == 1:
                 for x in personalGrowths:
                     x += 10
-            personalStats.extend((0,0,0,2,3,4,1,2))
+            personalStats.extend((3,2,0,0,1,0,3,3))
+            rogue = InfantryUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
+            return rogue
+        elif unitClass.lower() == 'rogue':
+            personalGrowths.extend((0,10,10,20,65,40,0,0)) 
+            if boss == 1:
+                for x in personalGrowths:
+                    x += 10
+            personalStats.extend((0,0,0,1,3,3,1,2))
             rogue = InfantryUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
             rogue.mov = 4
             return rogue
+        elif unitClass.lower() == 'assassin':
+            personalGrowths.extend((10,30,0,20,30,50,0,0)) 
+            if boss == 1:
+                for x in personalGrowths:
+                    x += 10
+            personalStats.extend((1,3,0,1,0,5,0,0))
+            assassin = InfantryUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
+            assassin.mov = 4
+            return assassin
         elif unitClass.lower() == 'sage':
             personalGrowths.extend((30,10,35,10,20,25,10,10)) 
             if boss == 1:

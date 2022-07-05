@@ -36,7 +36,10 @@ class Game:
         self.ADJUSTED_TILE_HEIGHT = TILE_HEIGHT + 16
         
         self.running = False
+        self.clockSpeed = 60
         pygame.display.set_caption("Tile Trial")
+        self.units = []
+        self.load_units()
         self.reset_game()
     
     def setMap(self, mapName):
@@ -44,24 +47,33 @@ class Game:
         self.dimensions = self.maps.getMapDimensions()
         
     def load_units(self):
+        for charName in UnitGenerator.unit_classes:  
+            tchar = UnitGenerator.create_unit('The ' + charName, charName, '../assets/characters/' + charName.lower() +'Token.png', '../assets/characters/' + charName.lower() + '.png')     
+            # tchar = MagicUnit("The " + charName, charName, 0, 0, [20,20,20,20,20,20,20,20], [4,0,0,0,0,0,0,0], '../assets/characters/' + charName +'Token.png', '../assets/characters/' + charName + '.png')
+            if tchar.token.get_width() == tchar.token.get_height():
+                aw = (min(85,tchar.token.get_width())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
+                ah = (min(85,tchar.token.get_height())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
+            else:
+                aw = (tchar.token.get_width()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
+                ah = (tchar.token.get_height()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
+            tchar.token = pygame.transform.scale(tchar.token, (aw,ah))
+            self.units.append(tchar)
+    
+    def load_team(self):
         charNames = []
         with open('../assets/characters/selected.txt') as f:
             lines = f.readlines()
             for line in lines:
                 newLine = line.strip()
                 charNames.append(newLine)
-        
+                
         chars = []
-        for charName in charNames:  
-            tchar = UnitGenerator.create_unit('The ' + charName, charName, '../assets/characters/' + charName.lower() +'Token.png', '../assets/characters/' + charName.lower() + '.png')     
-            # tchar = MagicUnit("The " + charName, charName, 0, 0, [20,20,20,20,20,20,20,20], [4,0,0,0,0,0,0,0], '../assets/characters/' + charName +'Token.png', '../assets/characters/' + charName + '.png')
-            tchar.token = pygame.transform.scale(tchar.token, (self.ADJUSTED_TILE_WIDTH,self.ADJUSTED_TILE_HEIGHT))
-            #print(tchar.name)
-            #print(tchar.stats)
-            #print(tchar.max_stats)
-            #print(tchar.growths)
-            chars.append(tchar)
+        for name in charNames:
+            for char in self.units:
+                if 'The ' + name == char.name:
+                    chars.append(char)
         return chars
+        
     
     def load_enemies(self, count):
         self.combat_manager.enemies = []
@@ -78,11 +90,18 @@ class Game:
                 etype = int(random.randrange(0, 3))
                 
             tchar = UnitGenerator.create_unit('The ' + enemy_types[etype], enemy_types[etype], '../assets/enemies/' + enemy_types[etype].lower() +'Token.png', '../assets/enemies/' + enemy_types[etype].lower() + '.png')  
-            tchar.token = pygame.transform.scale(tchar.token, (self.ADJUSTED_TILE_WIDTH,self.ADJUSTED_TILE_HEIGHT))
+            #tchar.token = pygame.transform.scale(tchar.token, (self.ADJUSTED_TILE_WIDTH,self.ADJUSTED_TILE_HEIGHT))
+            if tchar.token.get_width() == tchar.token.get_height():
+                aw = (min(85,tchar.token.get_width())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
+                ah = (min(85,tchar.token.get_height())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
+            else:
+                aw = (tchar.token.get_width()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
+                ah = (tchar.token.get_height()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
+            tchar.token = pygame.transform.scale(tchar.token, (aw,ah))
             self.combat_manager.enemies.append(tchar)
     
     def reset_game(self):
-        characters = self.load_units()
+        characters = self.load_team()
         self.character = characters[0]
         self.combat_manager = CombatManager(characters)
     
@@ -109,11 +128,10 @@ class Game:
             y = 0
             for t in tile:
                 # If the last character of the string is C, it indicates a character spawn spot. if E, it's an enemy spawn spot
-                if t[-1] == 'C':
+                if t[-1] == 'C' and i < self.combat_manager.characters.__len__():
                     spriteLine.append('c')
-                    if i < self.combat_manager.characters.__len__():
-                        self.combat_manager.characters[i].move(x,y);
-                        i += 1
+                    self.combat_manager.characters[i].move(x,y);
+                    i += 1
                 elif t[-1] == 'E':
                     spriteLine.append('e')
                     enemyCount += 1
@@ -168,8 +186,9 @@ class Game:
                 for char in self.combat_manager.characters:
                     if char.x == cx and char.y == cy:
                         self.character = char
+                        if char.acted and char.moved:
+                            menuSelected = 1
                         break
-                
             
             for event in pygame.event.get():
                 if event.type == QUIT:
@@ -205,9 +224,9 @@ class Game:
                                         self.character.originalY = -1
                                         # Display exp results and small animation for attacking
                                         if target.dead:
+                                            self.spriteMap[target.x][target.y] = 'n'
                                             self.character.add_exp(target.level,1)
                                             self.combat_manager.enemies.remove(target)
-                                            self.spriteMap[cx][cy] = 'n'
                                             if self.combat_manager.enemies.__len__() <= 0:
                                                 # You win
                                                 self.running = False
@@ -315,22 +334,59 @@ class Game:
                             # Survied an attack, but couldn't attack back. Heavily reduced exp
                             target.add_exp(0,0)
                             
-                        
                 self.combat_manager.next_turn()
                 
                 
             # Display all characters
+            anyAction = False
             for char in self.combat_manager.characters:
+                charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH)
+                charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT)
+                if not char.acted or not char.moved:
+                    anyAction = True
                 if char.moved and char.acted and not char.dead:
-                    self.window.blit(Game.grayscale_image(char.token),(char.x*self.ADJUSTED_TILE_WIDTH, char.y*self.ADJUSTED_TILE_HEIGHT)) 
+                    self.window.blit(Game.grayscale_image(char.token),(charX, charY)) 
                 elif not char.dead:
-                    self.window.blit(char.token,(char.x*self.ADJUSTED_TILE_WIDTH, char.y*self.ADJUSTED_TILE_HEIGHT))  
+                    self.window.blit(char.token,(charX, charY))  
                     
             for char in self.combat_manager.enemies:
+                charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH)
+                charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT)
                 if char.moved and char.acted and not char.dead:
-                    self.window.blit(Game.grayscale_image(char.token),(char.x*self.ADJUSTED_TILE_WIDTH, char.y*self.ADJUSTED_TILE_HEIGHT)) 
+                    self.window.blit(Game.grayscale_image(char.token),(charX, charY)) 
                 elif not char.dead:
-                    self.window.blit(char.token,(char.x*self.ADJUSTED_TILE_WIDTH, char.y*self.ADJUSTED_TILE_HEIGHT))   
+                    self.window.blit(char.token,(charX, charY))  
+            
+            # Draw oversized parts of tokens over again so they always appear over other tokens
+            for char in self.combat_manager.characters:
+                if char.token.get_height() <= self.ADJUSTED_TILE_WIDTH and char.token.get_width() <= self.ADJUSTED_TILE_WIDTH:
+                    continue
+                charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH)
+                charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT)
+                ttoken = char.token.copy()
+                # Create subsurface for normal area of the tile, then make it transparent
+                subsurface = ttoken.subsurface(((char.token.get_width()-self.ADJUSTED_TILE_WIDTH)/2, char.token.get_height()-self.ADJUSTED_TILE_HEIGHT, self.ADJUSTED_TILE_WIDTH, self.ADJUSTED_TILE_HEIGHT))
+                subsurface.fill((0,0,0,0))
+                if char.moved and char.acted and not char.dead:
+                    self.window.blit(Game.grayscale_image(ttoken),(charX, charY)) 
+                elif not char.dead:
+                    self.window.blit(ttoken,(charX, charY))  
+                    
+            for char in self.combat_manager.enemies:
+                if char.token.get_height() <= self.ADJUSTED_TILE_WIDTH and char.token.get_width() <= self.ADJUSTED_TILE_WIDTH:
+                    continue
+                charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH)
+                charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT)
+                ttoken = char.token.copy()
+                subsurface = ttoken.subsurface(((char.token.get_width()-self.ADJUSTED_TILE_WIDTH)/2, char.token.get_height()-self.ADJUSTED_TILE_HEIGHT, self.ADJUSTED_TILE_WIDTH, self.ADJUSTED_TILE_HEIGHT))
+                subsurface.fill((0,0,0,0))
+                if char.moved and char.acted and not char.dead:
+                    self.window.blit(Game.grayscale_image(ttoken),(charX, charY)) 
+                elif not char.dead:
+                    self.window.blit(ttoken,(charX, charY))  
+                
+            if not anyAction:
+                self.combat_manager.next_turn()
                 
             # Draw menu if action button is clicked. pass in object clicked on to figure out which options show up
             if not self.combat_manager.current_turn() == CombatManager.PLAYER_TURN:
@@ -389,7 +445,7 @@ class Game:
             
             # Update display
             pygame.display.flip()
-            clock.tick(15)
+            clock.tick(self.clockSpeed)
     
     # Found with some googling. Adjusted so it would copy the surface instead of adjusting the image directly
     @staticmethod  
@@ -413,28 +469,49 @@ class Game:
         width = self.ADJUSTED_TILE_WIDTH * 2 * optionsW
         borderSize = 3
         
+        #Background for image
+        background = pygame.Surface((height, height))
+        background.set_alpha(180)
+        
         statMenu = pygame.Surface((width, height))
         statMenu.set_alpha(180)
         if enemy == 0:
             statMenu.fill((67, 140, 76))
+            background.fill((67, 140, 76))
         else:
             statMenu.fill((170, 77, 86))
+            background.fill((170, 77, 86))
         
         border = pygame.Surface((width+borderSize*2, height+borderSize*2))
         border.set_alpha(180)
         border.fill((0, 0, 0))
         
+        # Set up the image and border
+        wborder = pygame.Surface((height+borderSize*2, height+borderSize*2))
+        wborder.set_alpha(180)
+        wborder.fill((0, 0, 0))
+        
+        image = character.icon.copy()
+        image = pygame.transform.scale(image, (height,height))
+        
         # Place the menu on the screen
-        x = 0
+        imageX = 0
+        x = imageX + height + borderSize
         y = self.dimensions[1]*self.ADJUSTED_TILE_WIDTH - height
         if self.cursor.x < self.dimensions[0]*self.ADJUSTED_TILE_WIDTH / 2:
             x = self.dimensions[0]*self.ADJUSTED_TILE_WIDTH - width
+            imageX = x - height - borderSize
         if self.cursor.y > self.dimensions[1]*self.ADJUSTED_TILE_HEIGHT / 2:
             y = 0
         
         # Place the menu and its border
         self.window.blit(border,(x-borderSize, y-borderSize)) 
         self.window.blit(statMenu,(x, y)) 
+        
+        # Place the character image and its border
+        self.window.blit(wborder,(imageX-borderSize, y-borderSize)) 
+        self.window.blit(background,(imageX, y)) 
+        self.window.blit(image,(imageX, y)) 
         
         '''
         Name, type, level
@@ -444,7 +521,7 @@ class Game:
         '''
         statXOffset = width/optionsW
         statYOffset = height/optionsH
-        font = pygame.font.SysFont(None, 30)
+        font = pygame.font.Font(pygame.font.match_font('calibri',bold=True), 25)
         
         # Line 1
         l1offset = width/2
@@ -467,7 +544,8 @@ class Game:
         self.draw_la_text("{} DEF".format(character.stats["def"]), font, (0, 0, 0), x+5+statXOffset*2, y+statYOffset*3+((height/optionsH)/2))
         self.draw_la_text("{} MOV".format(character.mov), font, (0, 0, 0), x+5+statXOffset*3, y+statYOffset*3+((height/optionsH)/2))
         
-       
+      
+    # Left aligned text 
     def draw_la_text(self, text, font, color, x, y):
         textobj = font.render(text, 2, color)
         textrect = textobj.get_rect()
@@ -486,7 +564,7 @@ class Game:
     
     def draw_menu(self, selected, objectClicked, clicked):
         menu = True
-        font = pygame.font.SysFont(None, 30)
+        font = pygame.font.Font(pygame.font.match_font('calibri',bold=True), 25)
         # Generate list of options depending on what's on the square clicked
         options = self.__create_options(objectClicked)
         menuW = self.ADJUSTED_TILE_WIDTH * 2.7
@@ -505,14 +583,15 @@ class Game:
         w += 1 # annoying warning gone
         x = self.cursor.x - menuW
         y = self.cursor.y + self.ADJUSTED_TILE_HEIGHT/2
-        if x - self.ADJUSTED_TILE_WIDTH < 0:
-            x = self.cursor.x + self.ADJUSTED_TILE_WIDTH
         if y + self.ADJUSTED_TILE_HEIGHT + menuH >= h:
             y = self.cursor.y - menuH + self.ADJUSTED_TILE_HEIGHT/2
+        if x - self.ADJUSTED_TILE_WIDTH < 0:
+            x = self.cursor.x + self.ADJUSTED_TILE_WIDTH
             
         # Place the menu and its border
         self.window.blit(border,(x-borderSize, y-borderSize)) 
         self.window.blit(actionMenu,(x, y)) 
+        
         
         # Place the buttons on the menu
         i = 1
@@ -557,6 +636,12 @@ class Game:
             self.character.originalY = self.character.y
             self.character.originalX = self.character.x
             self.spriteMap[self.character.originalX][self.character.originalY] = 'n'
+        if option == 'Wait':
+            self.character.moved = True
+            self.character.acted = True
+            self.character.originalY = -1
+            self.character.originalX = -1
+            menu = False
         if option == 'End Turn':
             self.combat_manager.next_turn()
             menu = False
@@ -574,13 +659,16 @@ class Game:
                 options.append('Move')
             elif not self.character.acted:
                 options.append('Move Action')
+            if not self.character.acted or not self.character.moved:
+                options.append('Wait')
             options.append('Unit Status')
         elif clickedObject == 'e':
             options.append('Unit Status')
-        
-        options.append('End Turn')
+        else:
+            options.append('End Turn')
+            options.append('Main Menu')
+            
         options.append('Options')
-        options.append('Main Menu')
         options.append('Cancel')
         return options
     
@@ -601,9 +689,9 @@ class Game:
     
     def reticle_idle(self, flip):
         if(flip == 0): 
-            self.cursor.a -= 15
+            self.cursor.a -= 15*(15/self.clockSpeed)
         else:
-            self.cursor.a += 15
+            self.cursor.a += 15*(15/self.clockSpeed)
             
         if(self.cursor.a <= 50):
             self.cursor.a = 50
@@ -616,14 +704,18 @@ class Game:
         return flip
     
     def cursor_movement(self, flip, currentEnemyI, currentCharI):
+            moveDelay = 15/self.clockSpeed
             keys = pygame.key.get_pressed()
             w, h = pygame.display.get_surface().get_size()
             x1 = 0
             y1 = 0
             
             # While a key is being pressed, the delay between moving the cursor reduces. It's reset when no keys are being pressed
-            if not any((keys[Options.LEFT], keys[Options.RIGHT], keys[Options.UP], keys[Options.DOWN], keys[Options.REWIND], keys[Options.NEXT])) or self.character.moving:
+            if not any((keys[Options.LEFT], keys[Options.RIGHT], keys[Options.UP], keys[Options.DOWN], keys[Options.REWIND], keys[Options.NEXT])):
                 self.cursor.move_delay_reduce = 0
+            elif self.character.moving:
+                self.cursor.move_delay_reduce = moveDelay/2
+                
                 
                 
             adjustX = int(self.cursor.x/self.ADJUSTED_TILE_WIDTH)
@@ -642,7 +734,7 @@ class Game:
                         currentCharI += 1
                         if currentCharI > self.combat_manager.characters.__len__()-1:
                             currentCharI = 0
-                    self.cursor.move_delay = 60 - self.cursor.move_delay_reduce
+                    self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
                 elif keys[Options.REWIND]:
                     if self.spriteMap[int(self.cursor.x/self.ADJUSTED_TILE_WIDTH)][int(self.cursor.y/self.ADJUSTED_TILE_HEIGHT)] == 'e':
                         self.cursor.x = self.combat_manager.enemies[currentEnemyI].x * self.ADJUSTED_TILE_WIDTH
@@ -656,62 +748,73 @@ class Game:
                         currentCharI -= 1
                         if currentCharI < 0:
                             currentCharI = self.combat_manager.characters.__len__() - 1
-                    self.cursor.move_delay = 60 - self.cursor.move_delay_reduce
+                    self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
                 elif keys[Options.LEFT] and (self.cursor.x-self.ADJUSTED_TILE_WIDTH) >= 0:
                     x1 -= 1
                     if self.character.moving:
-                        if self.character.can_move(self.character.x-1, self.character.y):
+                        if self.character.can_move(adjustX-1, adjustY):
+                            # Check if the tile is a blocked tile, and allow the cursor to move there if it's an enemy and the character can move there
                             if self.myTiles.tiles[int(adjustX-1)][int(adjustY)].block == 1:
-                                if not self.spriteMap[adjustX-1][adjustY] == 'e':
+                                if not self.spriteMap[adjustX-1][adjustY] == 'e' and self.character.can_move(adjustX-1,adjustY):
                                     x1 += 1
-                            elif self.character.can_move(adjustX-1, adjustY) and not self.spriteMap[adjustX-1][adjustY] == 'c':
+                            # Check if character can move to where the cursor is, and check that that place is neither a character or an enemy
+                            elif self.character.can_move(adjustX-1, adjustY) and not self.spriteMap[adjustX-1][adjustY] == 'c' and not self.spriteMap[adjustX-1][adjustY] == 'e':
                                 self.character.move(int(adjustX-1),int(adjustY))
+                            elif not self.spriteMap[adjustX-1][adjustY] == 'c' and not self.spriteMap[adjustX-1][adjustY] == 'e':
+                                x1 += 1
+                        # If the character can't move there, prevent the cursor from moving
                         else:
                             x1 += 1    
-                    self.cursor.move_delay = 60 - self.cursor.move_delay_reduce
+                    self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
                 elif keys[Options.RIGHT] and (self.cursor.x+self.ADJUSTED_TILE_WIDTH) < w:
                     x1 += 1
                     if self.character.moving:
-                        if self.character.can_move(self.character.x+1, self.character.y):
+                        if self.character.can_move(adjustX+1, adjustY):
                             if self.myTiles.tiles[int(adjustX+1)][int(adjustY)].block == 1:
-                                if not self.spriteMap[adjustX+1][adjustY] == 'e':
+                                if not self.spriteMap[adjustX+1][adjustY] == 'e' and self.character.can_move(adjustX+1,adjustY):
                                     x1 -= 1
-                            elif self.character.can_move(adjustX+1, adjustY) and not self.spriteMap[adjustX+1][adjustY] == 'c':
+                            elif self.character.can_move(adjustX+1, adjustY) and not self.spriteMap[adjustX+1][adjustY] == 'c' and not self.spriteMap[adjustX+1][adjustY] == 'e':
                                 self.character.move(int(adjustX+1),int(adjustY))
+                            elif not self.spriteMap[adjustX+1][adjustY] == 'c' and not self.spriteMap[adjustX+1][adjustY] == 'e':
+                                x1 -= 1
                         else:
                             x1 -= 1
-                    self.cursor.move_delay = 60 - self.cursor.move_delay_reduce
+                    self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
                 elif keys[Options.UP] and (self.cursor.y-self.ADJUSTED_TILE_HEIGHT) >= 0:
                     y1 -= 1
                     if self.character.moving:
-                        if self.character.can_move(self.character.x, self.character.y-1):
+                        if self.character.can_move(adjustX, adjustY-1):
                             if self.myTiles.tiles[int(adjustX)][int(adjustY-1)].block == 1:
-                                if not self.spriteMap[adjustX][adjustY-1] == 'e':
+                                if not self.spriteMap[adjustX][adjustY-1] == 'e' and self.character.can_move(adjustX,adjustY-1):
                                     y1 += 1
-                            elif self.character.can_move(adjustX, adjustY-1) and not self.spriteMap[adjustX][adjustY-1] == 'c':
+                            elif self.character.can_move(adjustX, adjustY-1) and not self.spriteMap[adjustX][adjustY-1] == 'c' and not self.spriteMap[adjustX][adjustY-1] == 'e':
                                 self.character.move(int(adjustX),int(adjustY-1))
+                            elif not self.spriteMap[adjustX][adjustY-1] == 'c' and not self.spriteMap[adjustX][adjustY-1] == 'e':
+                                y1 += 1
                         else:
                             y1 += 1
-                    self.cursor.move_delay = 60 - self.cursor.move_delay_reduce
+                    self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
                 elif keys[Options.DOWN] and (self.cursor.y+self.ADJUSTED_TILE_HEIGHT) < h:
                     y1 += 1
                     if self.character.moving:
-                        if self.character.can_move(self.character.x, self.character.y+1):
+                        if self.character.can_move(adjustX, adjustY+1):
                             if self.myTiles.tiles[int(adjustX)][int(adjustY+1)].block == 1:
-                                if not self.spriteMap[adjustX][adjustY+1] == 'e':
+                                if not self.spriteMap[adjustX][adjustY+1] == 'e' and self.character.can_move(adjustX,adjustY+1):
                                     y1 -= 1
-                            elif self.character.can_move(adjustX, adjustY+1) and not self.spriteMap[adjustX][adjustY+1] == 'c':
+                            elif self.character.can_move(adjustX, adjustY+1) and not self.spriteMap[adjustX][adjustY+1] == 'c' and not self.spriteMap[adjustX][adjustY+1] == 'e':
                                 self.character.move(int(adjustX),int(adjustY+1))
+                            elif not self.spriteMap[adjustX][adjustY+1] == 'c' and not self.spriteMap[adjustX][adjustY+1] == 'e':
+                                y1 -= 1
                         else:
                             y1 -= 1
-                    self.cursor.move_delay = 60 - self.cursor.move_delay_reduce
+                    self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
                     
                 if any(keys):
-                    self.cursor.move_delay_reduce += 15
-                if self.cursor.move_delay_reduce > 60:
-                    self.cursor.move_delay_reduce = 60
+                    self.cursor.move_delay_reduce += moveDelay/6#*(15/self.clockSpeed)
+                if self.cursor.move_delay_reduce > moveDelay-moveDelay/8:
+                    self.cursor.move_delay_reduce = moveDelay-moveDelay/8
             else:
-                self.cursor.move_delay -= 20
+                self.cursor.move_delay -= moveDelay/3*(15/self.clockSpeed)
                 
             self.cursor.y += y1*self.ADJUSTED_TILE_HEIGHT
             self.cursor.x += x1*self.ADJUSTED_TILE_WIDTH

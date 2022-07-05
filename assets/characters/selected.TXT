@@ -1,6 +1,6 @@
+Assassin
 Duelist
-General
-Sage
-Rogue
-Knight
 Mage
+Soldier
+General
+Knight
