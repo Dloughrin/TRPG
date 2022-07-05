@@ -94,9 +94,9 @@ class CombatManager():
                 y = 0
                 for coord in xline:
                     if npc.can_move_move(x,y) and not coord == 'c' and not coord == 'e' and not terrain.tiles[x][y].block == 1:
-                        if lowestMove == -1 or lowestMove > (abs(x-closestCoord[0])+abs(y-closestCoord[1])):
-                            lowestMove = (abs(x-npc.x)+abs(y-npc.y))
+                        if lowestMove == -1 or lowestMove >= (abs(x-lowestCoord[0])+abs(y-lowestCoord[1])):
                             lowestCoord = [x,y]
+                            lowestMove = (abs(x-lowestCoord[0])+abs(y-lowestCoord[1]))
                     y += 1
                 x += 1
             locations[lowestCoord[0]][lowestCoord[1]] = 'e'
@@ -125,8 +125,8 @@ class CombatManager():
                     for coord in xline:
                         if npc.can_move(x,y) and not coord == 'c' and not coord == 'e' and not terrain.tiles[x][y].block == 1:
                             if lowestMove == -1 or lowestMove > (abs(x-chosenCoord[0])+abs(y-chosenCoord[1])):
-                                lowestMove = (abs(x-npc.x)+abs(y-npc.y))
                                 lowestCoord = [x,y]
+                                lowestMove = (abs(x-chosenCoord[0])+abs(y-chosenCoord[1]))
                         y += 1
                     x += 1
                 locations[lowestCoord[0]][lowestCoord[1]] = 'e'

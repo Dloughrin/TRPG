@@ -1,0 +1,8 @@
+Duelist Light_Sword 1 0 8 3 0 4 4 3 3 2 
+Soldier Light_Sword 1 0 10 4 0 1 3 2 5 4 
+Rogue Light_Sword 1 0 7 2 0 2 5 5 3 3 
+Assassin Light_Sword 1 0 8 5 0 2 2 7 2 1 
+Sage Fire 1 0 8 0 6 1 3 4 2 5 
+Mage Fire 1 25 7 0 7 2 4 4 0 5 
+General Iron_Lance 1 0 12 4 0 4 2 0 5 2 
+Knight Iron_Lance 1 0 11 4 0 5 3 1 3 2 

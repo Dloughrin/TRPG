@@ -20,3 +20,6 @@ V Key
 
 ## Cycle Next Enemy
 V Key when hovering enemy unit
+
+## Show Enemy Range
+Space Bar

@@ -134,7 +134,7 @@ class MagicUnit(Unit):
     
     def __set_maximum_stats(self, personalGrowths):
         self.max_stats = {
-                "HP"     : min(99,55   + int(55*(personalGrowths[0]/100))),
+                "HP"     : min(120,55   + int(55*(personalGrowths[0]/100))),
                 "str"    : min(99,50   + int(50*(personalGrowths[1]/150))),
                 "mag"    : min(99,70   + int(70*(personalGrowths[2]/150))),
                 "skl"    : min(99,60   + int(60*(personalGrowths[3]/150))),
@@ -214,7 +214,7 @@ class InfantryUnit(Unit):
     
     def __set_maximum_stats(self, personalGrowths):
         self.max_stats = {
-                "HP"     : min(99,60   + int(60*(personalGrowths[0]/100))),
+                "HP"     : min(120,60   + int(60*(personalGrowths[0]/100))),
                 "str"    : min(99,60   + int(60*(personalGrowths[1]/150))),
                 "mag"    : min(99,50   + int(50*(personalGrowths[2]/150))),
                 "skl"    : min(99,70   + int(70*(personalGrowths[3]/150))),
@@ -294,7 +294,7 @@ class MountedUnit(Unit):
     
     def __set_maximum_stats(self, personalGrowths):
         self.max_stats = {
-                "HP"     : min(99,70   + int(70*(personalGrowths[0]/100))),
+                "HP"     : min(120,70   + int(70*(personalGrowths[0]/100))),
                 "str"    : min(99,60   + int(60*(personalGrowths[1]/150))),
                 "mag"    : min(99,40   + int(40*(personalGrowths[2]/150))),
                 "skl"    : min(99,60   + int(60*(personalGrowths[3]/150))),

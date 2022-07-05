@@ -16,6 +16,7 @@ class Options:
     KEYBOARD_BACK = pygame.K_x
     KEYBOARD_NEXT = pygame.K_v
     KEYBOARD_REWIND = pygame.K_c
+    KEYBOARD_DANGER = pygame.K_SPACE
     
     ALT_KEYBOARD_UP = pygame.K_w
     ALT_KEYBOARD_DOWN = pygame.K_s
@@ -33,3 +34,6 @@ class Options:
     #Cycling characters
     NEXT = KEYBOARD_NEXT
     REWIND = KEYBOARD_REWIND
+    
+    # Show enemy range
+    DANGER = KEYBOARD_DANGER

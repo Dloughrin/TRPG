@@ -101,9 +101,17 @@ class Game:
             self.combat_manager.enemies.append(tchar)
     
     def reset_game(self):
+        for unit in self.units:
+            unit.currentHP = unit.stats["HP"]
+            unit.dead = False
+            unit.acted = False
+            unit.moved = False
         characters = self.load_team()
         self.character = characters[0]
         self.combat_manager = CombatManager(characters)
+        self.combat_manager.enemies = []
+        self.spriteMap = []
+        self.myTiles = []
     
         self.dimensions = self.maps.getMapDimensions()
         self.window = pygame.display.set_mode((self.dimensions[0]*self.ADJUSTED_TILE_WIDTH, self.dimensions[1]*self.ADJUSTED_TILE_HEIGHT))
@@ -172,6 +180,7 @@ class Game:
         
         self.running = True
         menu = False
+        showAttacks = False
         menuSelected = 1
         options = 1
         while self.running:
@@ -198,6 +207,8 @@ class Game:
                     if event.type == KEYDOWN:
                         #if event.key == K_ESCAPE:
                             #self.running = False
+                        if event.key == Options.DANGER:
+                            showAttacks = not showAttacks
                         if event.key == Options.ACTION:
                             if self.character.moving == True:
                                 self.spriteMap[self.character.originalX][self.character.originalY] = 'n'
@@ -429,6 +440,27 @@ class Game:
                             self.window.blit(sidebar,(x*self.ADJUSTED_TILE_WIDTH, y*self.ADJUSTED_TILE_HEIGHT))
                         y += 1
                     x += 1
+                    
+            if showAttacks:
+                sidebar = pygame.Surface((self.ADJUSTED_TILE_WIDTH, self.ADJUSTED_TILE_HEIGHT))
+                sidebar.set_alpha(100)
+                x = 0
+                for xline in self.myTiles.tiles:
+                    y = 0
+                    for yline in xline:
+                        for npc in self.combat_manager.enemies:
+                            npc.originalX = npc.x
+                            npc.originalY = npc.y
+                            if npc.can_attack(x,y):
+                                sidebar.fill((220,20,20))
+                                self.window.blit(sidebar,(x*self.ADJUSTED_TILE_WIDTH, y*self.ADJUSTED_TILE_HEIGHT))
+                                npc.originalX = -1
+                                npc.originalY = -1
+                                break
+                            npc.originalX = -1
+                            npc.originalY = -1
+                        y += 1
+                    x += 1
                 
             
             if (self.spriteMap[cx][cy] == 'c' or self.spriteMap[cx][cy] == 'e') and not self.character.moving:
@@ -476,20 +508,20 @@ class Game:
         statMenu = pygame.Surface((width, height))
         statMenu.set_alpha(180)
         if enemy == 0:
-            statMenu.fill((67, 140, 76))
-            background.fill((67, 140, 76))
+            statMenu.fill((67, 160, 76))
+            background.fill((140,180,140))
         else:
-            statMenu.fill((170, 77, 86))
-            background.fill((170, 77, 86))
+            statMenu.fill((190, 77, 86))
+            background.fill((180, 140, 140))
         
-        border = pygame.Surface((width+borderSize*2, height+borderSize*2))
+        border = pygame.Surface((width+borderSize*2+height, height+borderSize*2))
         border.set_alpha(180)
         border.fill((0, 0, 0))
         
         # Set up the image and border
-        wborder = pygame.Surface((height+borderSize*2, height+borderSize*2))
-        wborder.set_alpha(180)
-        wborder.fill((0, 0, 0))
+        #wborder = pygame.Surface((height+borderSize*2, height+borderSize*2))
+        #wborder.set_alpha(90)
+        #wborder.fill((0, 0, 0))
         
         image = character.icon.copy()
         image = pygame.transform.scale(image, (height,height))
@@ -498,18 +530,20 @@ class Game:
         imageX = 0
         x = imageX + height + borderSize
         y = self.dimensions[1]*self.ADJUSTED_TILE_WIDTH - height
+        borderX = imageX + borderSize
         if self.cursor.x < self.dimensions[0]*self.ADJUSTED_TILE_WIDTH / 2:
             x = self.dimensions[0]*self.ADJUSTED_TILE_WIDTH - width
             imageX = x - height - borderSize
+            borderX = imageX
         if self.cursor.y > self.dimensions[1]*self.ADJUSTED_TILE_HEIGHT / 2:
             y = 0
         
         # Place the menu and its border
-        self.window.blit(border,(x-borderSize, y-borderSize)) 
+        self.window.blit(border,(borderX-borderSize, y-borderSize)) 
         self.window.blit(statMenu,(x, y)) 
         
         # Place the character image and its border
-        self.window.blit(wborder,(imageX-borderSize, y-borderSize)) 
+        #self.window.blit(wborder,(imageX-borderSize, y-borderSize)) 
         self.window.blit(background,(imageX, y)) 
         self.window.blit(image,(imageX, y)) 
         

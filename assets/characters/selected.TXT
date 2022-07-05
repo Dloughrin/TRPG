@@ -1,6 +1,1 @@
-Assassin
-Duelist
 Mage
-Soldier
-General
-Knight
