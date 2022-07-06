@@ -6,10 +6,11 @@ Purpose: Holds information for units on the game map
 '''
 import random
 import pygame
-from Item import Weapon
+from Item import Weapon, WeaponTraits
 
 class Unit():
     def __init__(self, name, unitClass, x, y):
+        self.tokenScaled = False
         self.name = name
         self.unitClass = unitClass
         self.x = x
@@ -29,7 +30,6 @@ class Unit():
         self.exp = 0
         self.level = 1
         self.mov = 3
-        self.range = 2
         self.stats = {
                 "HP"     : 5,
                 "str"    : 0,
@@ -74,7 +74,7 @@ class Unit():
     def can_attack(self, newX, newY):
         dx = abs(self.originalX - newX)
         dy = abs(self.originalY - newY)
-        if (dx+dy) > (self.mov+self.range):
+        if (dx+dy) > (self.mov+self.weapon.range):
             return False
         else:
             return True
@@ -82,7 +82,7 @@ class Unit():
     def can_attack_stationary(self, newX, newY):
         dx = abs(self.x - newX)
         dy = abs(self.y - newY)
-        if dx+dy > self.range:
+        if dx+dy > self.weapon.range:
             return False
         else:
             return True
@@ -111,20 +111,19 @@ class Unit():
 class MagicUnit(Unit):
     def __init__(self, name, x, y, personalGrowths, personalStats, icon, portrait):
         super().__init__(name, "Mage", x, y)
-        self.weapon = Weapon('Fire', 5, 4, 100, 5, 'Book')
+        self.weapon = WeaponTraits.build_weapon("Fire Book")
         self.token = pygame.image.load(icon)
         self.icon = pygame.image.load(portrait)
         self.exp = 0
         self.level = 1
         self.mov = 3
-        self.range = 2
         self.stats = {
                 "HP"     : 6 + personalStats[0],
                 "str"    : 0  + personalStats[1],
                 "mag"    : 3 + personalStats[2],
                 "skl"    : 1 + personalStats[3],
-                "spd"    : 2 + personalStats[4],
-                "lck"    : 2 + personalStats[5],
+                "spd"    : 3 + personalStats[4],
+                "lck"    : 6 + personalStats[5],
                 "def"    : 0 + personalStats[6],
                 "res"    : 3 + personalStats[7],
             }
@@ -185,28 +184,28 @@ class MagicUnit(Unit):
         return Unit.attack(self, damage, defense)
     
     def equip_weapon(self, weapon):
-        if weapon.type == 'Book' or weapon.type == 'Wand' or weapon.type == 'Staff':
+        # Can use basic small weapons, or magic weapons
+        if weapon.type == 'Book' or weapon.type == 'Wand' or weapon.type == 'Staff' or weapon.type == "Dagger" or weapon.type == "Shortsword":
             Unit.equip_weapon(self, weapon)
 
-class InfantryUnit(Unit):
+class ScoutUnit(Unit):
     def __init__(self, name, x, y, personalGrowths, personalStats, icon, portrait):
-        super().__init__(name, "Infantry", x, y)
+        super().__init__(name, "Scout", x, y)
         self.token = pygame.image.load(icon)
         self.icon = pygame.image.load(portrait)
-        self.weapon = Weapon('Light Sword', 4, 3, 90, 10, 'Sword')
+        self.weapon = WeaponTraits.build_weapon("Iron Shortsword")
         self.exp = 0
         self.level = 1
-        self.mov = 3
-        self.range = 1
+        self.mov = 4
         self.stats = {
-                "HP"     : 7 + personalStats[0],
+                "HP"     : 5 + personalStats[0],
                 "str"    : 2  + personalStats[1],
                 "mag"    : 0 + personalStats[2],
-                "skl"    : 1 + personalStats[3],
-                "spd"    : 2 + personalStats[4],
-                "lck"    : 2 + personalStats[5],
-                "def"    : 2 + personalStats[6],
-                "res"    : 1 + personalStats[7],
+                "skl"    : 2 + personalStats[3],
+                "spd"    : 3 + personalStats[4],
+                "lck"    : 7 + personalStats[5],
+                "def"    : 1 + personalStats[6],
+                "res"    : 2 + personalStats[7],
             }
         self.currentHP = self.stats["HP"]
         self.__set_growths(personalGrowths)
@@ -226,14 +225,14 @@ class InfantryUnit(Unit):
         
     def __set_growths(self,personalGrowths):
         self.growths = {
-                "HP"     : 45 + personalGrowths[0],
+                "HP"     : 40 + personalGrowths[0],
                 "str"    : 35 + personalGrowths[1],
                 "mag"    : 20 + personalGrowths[2],
-                "skl"    : 40 + personalGrowths[3],
+                "skl"    : 50 + personalGrowths[3],
                 "spd"    : 55 + personalGrowths[4],
-                "lck"    : 45 + personalGrowths[5],
-                "def"    : 30 + personalGrowths[6],
-                "res"    : 30 + personalGrowths[7]
+                "lck"    : 50 + personalGrowths[5],
+                "def"    : 25 + personalGrowths[6],
+                "res"    : 25 + personalGrowths[7]
             }
     
     def __level_up(self):
@@ -265,7 +264,88 @@ class InfantryUnit(Unit):
         return Unit.attack(self, damage, defense)
     
     def equip_weapon(self, weapon):
-        if not weapon.type == 'Book' and not weapon.type == 'Wand' and not weapon.type == 'Staff':
+        # Can't hold a lance properly, and no magic weapons
+        if not weapon.type == 'Book' and not weapon.type == 'Wand' and not weapon.type == 'Staff' and not "Lance":
+            Unit.equip_weapon(self, weapon)
+            
+class InfantryUnit(Unit):
+    def __init__(self, name, x, y, personalGrowths, personalStats, icon, portrait):
+        super().__init__(name, "Infantry", x, y)
+        self.token = pygame.image.load(icon)
+        self.icon = pygame.image.load(portrait)
+        self.weapon = WeaponTraits.build_weapon("Iron Sword")
+        self.exp = 0
+        self.level = 1
+        self.mov = 3
+        self.stats = {
+                "HP"     : 8 + personalStats[0],
+                "str"    : 3  + personalStats[1],
+                "mag"    : 0 + personalStats[2],
+                "skl"    : 1 + personalStats[3],
+                "spd"    : 1 + personalStats[4],
+                "lck"    : 5 + personalStats[5],
+                "def"    : 2 + personalStats[6],
+                "res"    : 2 + personalStats[7],
+            }
+        self.currentHP = self.stats["HP"]
+        self.__set_growths(personalGrowths)
+        self.__set_maximum_stats(personalGrowths)
+    
+    def __set_maximum_stats(self, personalGrowths):
+        self.max_stats = {
+                "HP"     : min(120,60   + int(60*(personalGrowths[0]/100))),
+                "str"    : min(99,65   + int(60*(personalGrowths[1]/150))),
+                "mag"    : min(99,50   + int(50*(personalGrowths[2]/150))),
+                "skl"    : min(99,65   + int(70*(personalGrowths[3]/150))),
+                "spd"    : min(99,70   + int(70*(personalGrowths[4]/150))),
+                "lck"    : min(99,80   + int(80*(personalGrowths[5]/150))),
+                "def"    : min(99,65   + int(70*(personalGrowths[6]/150))),
+                "res"    : min(99,60   + int(70*(personalGrowths[7]/150)))
+            }
+        
+    def __set_growths(self,personalGrowths):
+        self.growths = {
+                "HP"     : 50 + personalGrowths[0],
+                "str"    : 40 + personalGrowths[1],
+                "mag"    : 15 + personalGrowths[2],
+                "skl"    : 45 + personalGrowths[3],
+                "spd"    : 40 + personalGrowths[4],
+                "lck"    : 30 + personalGrowths[5],
+                "def"    : 45 + personalGrowths[6],
+                "res"    : 35 + personalGrowths[7]
+            }
+    
+    def __level_up(self):
+        self.level += 1
+        self.exp -= 100
+        
+        str = ""
+        for stat in self.stats:
+            rand = random.randrange(0,100) + 1
+            if rand < self.growths[stat]:
+                self.stats[stat] += 1
+                str += '{} went up 1!\n'.format(stat.upper())
+                if rand < self.growths[stat]-99:
+                    self.stats[stat] += 1
+                    str += '{} went up 1!\n'.format(stat.upper())
+        print(str)
+    
+    def add_exp(self, enemyLevel, kill):
+        super().add_exp(enemyLevel, kill)
+        if self.exp >= 100:
+            self.__level_up()
+            
+    def attack(self, target, crit=0):
+        damage = self.stats["str"] + self.weapon.damage
+        defense = target.stats["def"]
+        rand = random.randrange(0,100) + 1
+        if rand < crit:
+            damage *= 2
+        return Unit.attack(self, damage, defense)
+    
+    def equip_weapon(self, weapon):
+        # Can't hold a lance properly, and no magic weapons
+        if not weapon.type == 'Book' and not weapon.type == 'Wand' and not weapon.type == 'Staff' and not "Lance":
             Unit.equip_weapon(self, weapon)
 
 class MountedUnit(Unit):
@@ -273,18 +353,17 @@ class MountedUnit(Unit):
         super().__init__(name, "Mounted", x, y)
         self.token = pygame.image.load(icon)
         self.icon = pygame.image.load(portrait)
-        self.weapon = Weapon('Iron Lance', 7, 8, 80, 0, 'Spear')
+        self.weapon = WeaponTraits.build_weapon("Iron Lance")
         self.exp = 0
         self.level = 1
         self.mov = 6
-        self.range = 1
         self.stats = {
                 "HP"     : 8 + personalStats[0],
                 "str"    : 2 + personalStats[1],
                 "mag"    : 0 + personalStats[2],
                 "skl"    : 3 + personalStats[3],
                 "spd"    : 2 + personalStats[4],
-                "lck"    : 0 + personalStats[5],
+                "lck"    : 5 + personalStats[5],
                 "def"    : 2 + personalStats[6],
                 "res"    : 0 + personalStats[7],
             }
@@ -345,7 +424,8 @@ class MountedUnit(Unit):
         return Unit.attack(self, damage, defense)
     
     def equip_weapon(self, weapon):
-        if not weapon.type == 'Book' and not weapon.type == 'Wand' and not weapon.type == 'Staff':
+        # No light weapons, no magic weapons
+        if not weapon.type == 'Book' and not weapon.type == 'Wand' and not weapon.type == 'Staff' and not "Dagger" and not "Shortsword" and not "Hatchet":
             Unit.equip_weapon(self, weapon)
         
 
@@ -375,22 +455,20 @@ class UnitGenerator:
             rogue = InfantryUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
             return rogue
         elif unitClass.lower() == 'rogue':
-            personalGrowths.extend((0,10,10,20,65,40,0,0)) 
+            personalGrowths.extend((0,10,10,25,60,45,0,0)) 
             if boss == 1:
                 for x in personalGrowths:
                     x += 10
-            personalStats.extend((0,0,0,1,3,3,1,2))
-            rogue = InfantryUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
-            rogue.mov = 4
+            personalStats.extend((0,1,0,2,3,3,1,2))
+            rogue = ScoutUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
             return rogue
         elif unitClass.lower() == 'assassin':
-            personalGrowths.extend((10,30,0,20,30,50,0,0)) 
+            personalGrowths.extend((15,35,0,20,30,50,0,0)) 
             if boss == 1:
                 for x in personalGrowths:
                     x += 10
-            personalStats.extend((1,3,0,1,0,5,0,0))
-            assassin = InfantryUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
-            assassin.mov = 4
+            personalStats.extend((3,3,0,1,0,5,0,0))
+            assassin = ScoutUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
             return assassin
         elif unitClass.lower() == 'sage':
             personalGrowths.extend((30,10,35,10,20,25,10,10)) 

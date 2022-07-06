@@ -50,13 +50,13 @@ class Game:
         for charName in UnitGenerator.unit_classes:  
             tchar = UnitGenerator.create_unit('The ' + charName, charName, '../assets/characters/' + charName.lower() +'Token.png', '../assets/characters/' + charName.lower() + '.png')     
             # tchar = MagicUnit("The " + charName, charName, 0, 0, [20,20,20,20,20,20,20,20], [4,0,0,0,0,0,0,0], '../assets/characters/' + charName +'Token.png', '../assets/characters/' + charName + '.png')
-            if tchar.token.get_width() == tchar.token.get_height():
+            '''if tchar.token.get_width() == tchar.token.get_height():
                 aw = (min(85,tchar.token.get_width())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
                 ah = (min(85,tchar.token.get_height())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
             else:
                 aw = (tchar.token.get_width()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
                 ah = (tchar.token.get_height()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
-            tchar.token = pygame.transform.scale(tchar.token, (aw,ah))
+            tchar.token = pygame.transform.scale(tchar.token, (aw,ah))'''
             self.units.append(tchar)
     
     def load_team(self):
@@ -71,7 +71,18 @@ class Game:
         for name in charNames:
             for char in self.units:
                 if 'The ' + name == char.name:
+                    if not char.tokenScaled and char.token.get_width() == char.token.get_height():
+                        aw = (min(85,char.token.get_width())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
+                        ah = (min(85,char.token.get_height())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
+                        char.tokenScaled = True
+                        char.token = pygame.transform.scale(char.token, (aw,ah))
+                    elif not char.tokenScaled:
+                        aw = (char.token.get_width()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
+                        ah = (char.token.get_height()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
+                        char.tokenScaled = True
+                        char.token = pygame.transform.scale(char.token, (aw,ah))
                     chars.append(char)
+                    print(char.token.get_height())
         return chars
         
     

@@ -23,7 +23,7 @@ clockSpeed = 30
 
 button_color = (195, 0, 0)
 menu_color = (175, 0, 0)
-game = Game(TILE_WIDTH, TILE_HEIGHT)
+game = Game()
 
 
 def start_loop():
@@ -310,7 +310,7 @@ def char_select_menu(screen):
             draw_la_stat('{}/{}'.format(cinfo.stats["lck"], cinfo.max_stats["lck"]), font, (0, 0, 0), screen, x+2*borderWidth+image.get_width()+50, y+borderWidth+displayOffset*5)  
             draw_la_text('MOV', font, (0, 0, 0), screen, x+ra_adjust, y+borderWidth+displayOffset*5)    
             draw_la_text('{}'.format(cinfo.mov), font, (0, 0, 0), screen, x+ra_adjust+60, y+borderWidth+displayOffset*5)  
-            draw_la_text('Equipped: {}'.format(cinfo.weapon.name), font, (0, 0, 0), screen, x+2*borderWidth+image.get_width(), y+borderWidth+displayOffset*6)  
+            draw_la_text('{}'.format(cinfo.weapon.name), font, (0, 0, 0), screen, x+2*borderWidth+image.get_width(), y+borderWidth+displayOffset*6)  
             
             if align == 1:
                 align = 0
@@ -347,6 +347,7 @@ def char_select_menu(screen):
             if click and selected == options-1:
                 selecting = False
             elif click and selected == options and chosenChars.__len__() > 0:
+                selecting = False
                 str = ""
                 for char in chosenChars:
                     str += char + '\n'

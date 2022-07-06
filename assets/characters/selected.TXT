@@ -1,1 +1,6 @@
 Mage
+Sage
+Rogue
+Assassin
+Soldier
+Duelist

@@ -5,6 +5,7 @@ Email: dloughrin@cnm.edu
 Purpose: Has various functions used in multiple places
 '''
 from Unit import UnitGenerator
+from Item import WeaponTraits
 
 def draw_text(text, font, color, surface, x, y):
     textobj = font.render(text, 1, color)
@@ -41,15 +42,15 @@ def draw_la_stat(text, font, color, surface, x, y):
     surface.blit(textobj, textrect)
     
 def save_file(units,file="auto"):
-    str = ""
+    output = ""
     for unit in units:
-        str += "{} {} {} {} ".format(unit.name.replace("The ",""),unit.weapon.name.replace(" ","_"),unit.level,unit.exp) 
+        output += "{} {} {} {} ".format(unit.name.replace("The ",""),unit.weapon.name.replace(" ","_"),unit.level,unit.exp) 
         for stat in unit.stats:
-            str += '{} '.format(unit.stats[stat])
-        str += '\n'
+            output += '{} '.format(unit.stats[stat])
+        output += '\n'
         
     with open('../saves/' + file + '.txt', 'w') as f:
-        f.write(str)
+        f.write(output)
 
 def load_file(file="auto"):
     units = []
@@ -58,12 +59,13 @@ def load_file(file="auto"):
     for line in lines:
         newLine = line.strip().split(' ')
         unit = UnitGenerator.create_unit('The ' + newLine[0], newLine[0],'../assets/characters/' + newLine[0].lower() +'Token.png', '../assets/characters/' + newLine[0].lower() + '.png')
-        # do weapon thing
-        unit.level = newLine[2]
-        unit.exp = newLine[3]
+        weapon = WeaponTraits.build_weapon(newLine[1].replace("_"," "))
+        unit.weapon = weapon
+        unit.level = int(newLine[2])
+        unit.exp = int(newLine[3])
         i = 4
         for stat in unit.stats:
-            unit.stats[stat] = newLine[i]
+            unit.stats[stat] = int(newLine[i])
             i+=1
         units.append(unit)
     return units
