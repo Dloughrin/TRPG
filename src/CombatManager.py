@@ -37,10 +37,13 @@ class CombatManager():
                 self.moves_available += 1
                 
     def next_turn(self):
+        for char in self.enemies:
+            char.moved = False
+            char.acted = False
+        for char in self.characters:
+            char.moved = False
+            char.acted = False
         if(self.__turn == CombatManager.ENEMY_TURN):
-            for char in self.characters:
-                char.moved = False
-                char.acted = False
             self.__turn = CombatManager.PLAYER_TURN
         elif(self.__turn == CombatManager.PLAYER_TURN):
             self.__turn = CombatManager.ENEMY_TURN
@@ -109,8 +112,12 @@ class CombatManager():
             for coord in inrangeCoords:
                 z = 0
                 for target in self.characters:
+                    print(target.name)
+                    if target.dead:
+                        print("dead")
+                        continue
                     damageOK = (damage == -1 or damage < (npc.attack(target) - target.attack(npc)))
-                    if target.x == coord[0] and target.y == coord[1] and damageOK:
+                    if target.x == coord[0] and target.y == coord[1] and damageOK and target.currentHP > 0:
                         damage = npc.attack(target) - target.attack(npc)
                         chosenCoord = coord
                         targetI = z
@@ -131,8 +138,9 @@ class CombatManager():
                     x += 1
                 locations[lowestCoord[0]][lowestCoord[1]] = 'e'
                 locations[npc.originalX][npc.originalY] = 'n'
-                action = [CombatManager.ACTION_MOVE, lowestCoord, targetI]
+                action = [CombatManager.ACTION_MOVE, lowestCoord, self.characters[targetI].name]
             else:
+                targetI = -1
                 action = [CombatManager.ACTION, closestCoord, targetI]
         return action
                     
@@ -168,8 +176,8 @@ class CombatManager():
                 break
             elif aset[0] > dset[0]:
                 if CombatManager.calc_hit(defender, attacker):
-                    defender.take_damage(aset[1][0])
-                    naset.append(aset[1][0])
+                    defender.take_damage(aset[1][i])
+                    naset.append(aset[1][i])
                 else:
                     naset.append(-1)
             else:

@@ -6,11 +6,11 @@ Purpose: Loads various menu types
 '''
 import pygame
 from pygame.locals import *
+from Util import *
 from multiprocessing import sys
 from Game import Game
 from Options import Options
-from Unit import UnitGenerator
-from Util import *
+#from Unit import UnitGenerator
 
 TILE_HEIGHT = 32
 TILE_WIDTH = 32
@@ -27,8 +27,14 @@ game = Game()
 
 
 def start_loop():
-    game.reset_game()
+    try:
+        game.reset_game()
+    except Exception as e:
+        print("Something went wrong in game reset:",e)
+    #try:
     game.game_loop()
+    #except Exception as e:
+    #    print("Something went wrong in game loop:",e)
     
 def change_map():
     if game.maps.getMapName() == "Map 1":
@@ -177,7 +183,7 @@ def save_menu(screen):
                     save_file(game.units,'save{}'.format(selected))
                     text = "Saved in slot {}".format(selected)
                 else:
-                    load_file('save{}'.format(selected))
+                    game.units = load_file('save{}'.format(selected))
                     text = "Loaded data from slot {}".format(selected)
         else:
             selectedHighlight = pygame.Surface((barSize*3, barSize-barSize/6))
@@ -415,21 +421,30 @@ def main_menu(screen):
         if selected == 2:
             pygame.draw.rect(screen, (195+pulse,0+round(pulse*2.5),0+round(pulse*2.5)), button_2)
             if click:
-                char_select_menu(screen)
+                try:
+                    char_select_menu(screen)
+                except Exception as e:
+                    print("Something went wrong in character select:",e)
         else:
             pygame.draw.rect(screen, button_color, button_2)
             
         if selected == 3:
             pygame.draw.rect(screen, (195+pulse,0+round(pulse*2.5),0+round(pulse*2.5)), button_3)
             if click:
-                save_menu(screen)
+                try:
+                    save_menu(screen)
+                except Exception as e:
+                    print("Something went wrong in save menu:",e)
         else:
             pygame.draw.rect(screen, button_color, button_3)
             
         if selected == 4:
             pygame.draw.rect(screen, (195+pulse,0+round(pulse*2.5),0+round(pulse*2.5)), button_4)
             if click:
-                change_map()
+                try:
+                    change_map()
+                except Exception as e:
+                    print("Something went wrong when changing maps:",e)
         else:
             pygame.draw.rect(screen, button_color, button_4)
 

@@ -76,13 +76,14 @@ class Game:
                         ah = (min(85,char.token.get_height())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
                         char.tokenScaled = True
                         char.token = pygame.transform.scale(char.token, (aw,ah))
+                        char.gray_token = pygame.transform.scale(char.gray_token, (aw,ah))
                     elif not char.tokenScaled:
                         aw = (char.token.get_width()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
                         ah = (char.token.get_height()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
                         char.tokenScaled = True
                         char.token = pygame.transform.scale(char.token, (aw,ah))
+                        char.gray_token = pygame.transform.scale(char.gray_token, (aw,ah))
                     chars.append(char)
-                    print(char.token.get_height())
         return chars
         
     
@@ -92,7 +93,14 @@ class Game:
         primary = int(random.randrange(0, 3))
         
         tchar = UnitGenerator.create_unit('The ' + enemy_types[primary], enemy_types[primary], '../assets/enemies/' + enemy_types[primary].lower() +'Token.png', '../assets/enemies/' + enemy_types[primary].lower() + '.png')  
-        tchar.token = pygame.transform.scale(tchar.token, (self.ADJUSTED_TILE_WIDTH,self.ADJUSTED_TILE_HEIGHT))
+        if tchar.token.get_width() == tchar.token.get_height():
+            aw = (min(85,tchar.token.get_width())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
+            ah = (min(85,tchar.token.get_height())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
+        else:
+            aw = (tchar.token.get_width()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
+            ah = (tchar.token.get_height()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
+        tchar.token = pygame.transform.scale(tchar.token, (aw,ah))
+        tchar.gray_token = pygame.transform.scale(tchar.gray_token, (aw,ah))
         self.combat_manager.enemies.append(tchar)
         
         for x in range(1,count):
@@ -109,6 +117,7 @@ class Game:
                 aw = (tchar.token.get_width()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
                 ah = (tchar.token.get_height()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
             tchar.token = pygame.transform.scale(tchar.token, (aw,ah))
+            tchar.gray_token = pygame.transform.scale(tchar.gray_token, (aw,ah))
             self.combat_manager.enemies.append(tchar)
     
     def reset_game(self):
@@ -142,6 +151,7 @@ class Game:
         i = 0
         enemyCount = 0
         
+        
         for tile in currentMap[1]:
             spriteLine = []
             y = 0
@@ -165,6 +175,7 @@ class Game:
             
             
         self.load_enemies(enemyCount) 
+        cenemyI = 0
         
         ei = 0
         x = 0
@@ -195,7 +206,24 @@ class Game:
         menuSelected = 1
         options = 1
         while self.running:
+            #Render_Text(str(int(clock.get_fps())), (255,0,0), (0,0))
+            #print("FPS:{}  {}".format(int(clock.get_fps()),self.clockSpeed))
             clicked = False
+            if self.combat_manager.current_turn() == CombatManager.ENEMY_TURN and not cenemyI < self.combat_manager.enemies.__len__():
+                cenemyI = 0
+                self.combat_manager.next_turn()
+                print(cenemyI)
+                print('next turn pls')
+            currentEnemy = self.combat_manager.enemies[cenemyI]
+            while currentEnemy.dead:
+                cenemyI+=1
+                if self.combat_manager.current_turn() == CombatManager.ENEMY_TURN and not cenemyI < self.combat_manager.enemies.__len__():
+                    cenemyI = 0
+                    self.combat_manager.next_turn()
+                    print(cenemyI)
+                    print('next turn pls')
+                currentEnemy = self.combat_manager.enemies[cenemyI]
+            
             # Redraw map
             self.window.fill((255, 255, 255))
             self.draw_map(currentTiles, self.myTiles)
@@ -320,43 +348,77 @@ class Game:
             cy = int(self.cursor.y/self.ADJUSTED_TILE_HEIGHT)
                                 
             if self.combat_manager.current_turn() == CombatManager.ENEMY_TURN:
-                for char in self.combat_manager.enemies:
+                if not currentEnemy.moved and currentEnemy.moving:
+                    currentEnemy.move(currentEnemy.next_square[0],currentEnemy.next_square[1])
+                    #print(currentEnemy.moving)
+                elif not currentEnemy.acted and currentEnemy.attacking:
+                    print('attacking')
+                    print(currentEnemy.unresolved_attack,self.combat_manager.characters.__len__())
+                    ti = 0
+                    for t in self.combat_manager.characters:
+                        print("{} == {}".format(t.name,currentEnemy.unresolved_attack))
+                        if t.name == currentEnemy.unresolved_attack:
+                            break
+                        ti+=1
+                    if ti < self.combat_manager.characters.__len__():
+                        target = self.combat_manager.characters[ti]
+                        if currentEnemy.can_attack_stationary(target.x,target.y):
+                            print("targetted")
+                            CombatManager.fight(currentEnemy,target) 
+                            print("resolved t:{} {} c:{} {}".format(target.dead,target.currentHP,currentEnemy.dead,currentEnemy.currentHP))
+                    currentEnemy.attacking = True
+                    currentEnemy.acted = True
+                    currentEnemy.moved = True
+                    if target.dead and target in self.combat_manager.characters:
+                        self.spriteMap[target.x][target.y] = 'n'
+                        self.combat_manager.characters.remove(target)
+                        if self.combat_manager.characters.__len__() > 0:
+                            self.character = self.combat_manager.characters[0]
+                        else:
+                            # Game over
+                            self.running = False
+                    elif currentEnemy.dead:
+                        self.spriteMap[currentEnemy.x][currentEnemy.y] = 'n'
+                        self.combat_manager.enemies.remove(currentEnemy)
+                        # Defeated the attacking enemy, 100% exp
+                        target.add_exp(target.level,1)
+                        if self.combat_manager.enemies.__len__() <= 0:
+                            # You win
+                            self.running = False
+                    elif not target.can_attack_stationary(currentEnemy.x,currentEnemy.y):
+                        # Survived an attack, but enemy survived too. Reduced exp
+                        target.add_exp(target.level,0)
+                    else:
+                        # Survied an attack, but couldn't attack back. Heavily reduced exp
+                        target.add_exp(0,0)
+                    print('attacked')
+                elif currentEnemy.moved or currentEnemy.acted:
+                    currentEnemy.moved = True
+                    currentEnemy.acted = True
+                    cenemyI+=1
+                else:
+                    print(cenemyI)
                     # Set [ type of action , location for movement , target for attack ]
-                    set = self.combat_manager.ai(self.spriteMap,self.myTiles, char)
+                    set = self.combat_manager.ai(self.spriteMap,self.myTiles, currentEnemy)
                     # NPC decides to move twice
                     if set[0] == CombatManager.MOVE_MOVE:
-                        char.move(set[1][0],set[1][1])
+                        currentEnemy.moving = True
+                        currentEnemy.unresolved_move = [set[1][0],set[1][1]]
+                        currentEnemy.move(currentEnemy.x,currentEnemy.y)
                     # NPC decides to attack
                     elif set[0] == CombatManager.ACTION_MOVE or set[0] == CombatManager.ACTION:
-                        target = self.combat_manager.characters[set[2]]
+                        print('attacky')
+                        #target = self.combat_manager.characters[set[2]]
+                        currentEnemy.unresolved_attack = set[2]
+                        currentEnemy.attacking = True
                         # NPC also decides to move
                         if set[0] == CombatManager.ACTION_MOVE:
-                            char.move(set[1][0],set[1][1])
-                        CombatManager.fight(char,target) 
-                        if target.dead:
-                            self.spriteMap[target.x][target.y] = 'n'
-                            self.combat_manager.characters.remove(target)
-                            if self.combat_manager.characters.__len__() > 0:
-                                self.character = self.combat_manager.characters[0]
-                            else:
-                                # Game over
-                                self.running = False
-                        elif char.dead:
-                            self.spriteMap[char.x][char.y] = 'n'
-                            self.combat_manager.enemies.remove(char)
-                            # Defeated the attacking enemy, 100% exp
-                            target.add_exp(target.level,1)
-                            if self.combat_manager.enemies.__len__() <= 0:
-                                # You win
-                                self.running = False
-                        elif not target.can_attack_stationary(char.x,char.y):
-                            # Survived an attack, but enemy survived too. Reduced exp
-                            target.add_exp(target.level,0)
-                        else:
-                            # Survied an attack, but couldn't attack back. Heavily reduced exp
-                            target.add_exp(0,0)
+                            currentEnemy.moving = True
+                            currentEnemy.unresolved_move = [set[1][0],set[1][1]]
+                            currentEnemy.move(currentEnemy.x,currentEnemy.y)
+                        #CombatManager.fight(char,target) 
                             
-                self.combat_manager.next_turn()
+                #self.combat_manager.next_turn()
                 
                 
             # Display all characters
@@ -367,7 +429,7 @@ class Game:
                 if not char.acted or not char.moved:
                     anyAction = True
                 if char.moved and char.acted and not char.dead:
-                    self.window.blit(Game.grayscale_image(char.token),(charX, charY)) 
+                    self.window.blit(char.gray_token,(charX, charY)) 
                 elif not char.dead:
                     self.window.blit(char.token,(charX, charY))  
                     
@@ -375,7 +437,7 @@ class Game:
                 charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH)
                 charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT)
                 if char.moved and char.acted and not char.dead:
-                    self.window.blit(Game.grayscale_image(char.token),(charX, charY)) 
+                    self.window.blit(char.gray_token,(charX, charY)) 
                 elif not char.dead:
                     self.window.blit(char.token,(charX, charY))  
             
@@ -385,13 +447,17 @@ class Game:
                     continue
                 charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH)
                 charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT)
-                ttoken = char.token.copy()
-                # Create subsurface for normal area of the tile, then make it transparent
-                subsurface = ttoken.subsurface(((char.token.get_width()-self.ADJUSTED_TILE_WIDTH)/2, char.token.get_height()-self.ADJUSTED_TILE_HEIGHT, self.ADJUSTED_TILE_WIDTH, self.ADJUSTED_TILE_HEIGHT))
-                subsurface.fill((0,0,0,0))
                 if char.moved and char.acted and not char.dead:
-                    self.window.blit(Game.grayscale_image(ttoken),(charX, charY)) 
+                    ttoken = char.gray_token.copy()
+                    # Create subsurface for normal area of the tile, then make it transparent
+                    subsurface = ttoken.subsurface(((char.token.get_width()-self.ADJUSTED_TILE_WIDTH)/2, char.token.get_height()-self.ADJUSTED_TILE_HEIGHT, self.ADJUSTED_TILE_WIDTH, self.ADJUSTED_TILE_HEIGHT))
+                    subsurface.fill((0,0,0,0))
+                    self.window.blit(ttoken,(charX, charY)) 
                 elif not char.dead:
+                    ttoken = char.token.copy()
+                    # Create subsurface for normal area of the tile, then make it transparent
+                    subsurface = ttoken.subsurface(((char.token.get_width()-self.ADJUSTED_TILE_WIDTH)/2, char.token.get_height()-self.ADJUSTED_TILE_HEIGHT, self.ADJUSTED_TILE_WIDTH, self.ADJUSTED_TILE_HEIGHT))
+                    subsurface.fill((0,0,0,0))
                     self.window.blit(ttoken,(charX, charY))  
                     
             for char in self.combat_manager.enemies:
@@ -399,12 +465,17 @@ class Game:
                     continue
                 charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH)
                 charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT)
-                ttoken = char.token.copy()
-                subsurface = ttoken.subsurface(((char.token.get_width()-self.ADJUSTED_TILE_WIDTH)/2, char.token.get_height()-self.ADJUSTED_TILE_HEIGHT, self.ADJUSTED_TILE_WIDTH, self.ADJUSTED_TILE_HEIGHT))
-                subsurface.fill((0,0,0,0))
                 if char.moved and char.acted and not char.dead:
-                    self.window.blit(Game.grayscale_image(ttoken),(charX, charY)) 
+                    ttoken = char.gray_token.copy()
+                    # Create subsurface for normal area of the tile, then make it transparent
+                    subsurface = ttoken.subsurface(((char.token.get_width()-self.ADJUSTED_TILE_WIDTH)/2, char.token.get_height()-self.ADJUSTED_TILE_HEIGHT, self.ADJUSTED_TILE_WIDTH, self.ADJUSTED_TILE_HEIGHT))
+                    subsurface.fill((0,0,0,0))
+                    self.window.blit(ttoken,(charX, charY)) 
                 elif not char.dead:
+                    ttoken = char.token.copy()
+                    # Create subsurface for normal area of the tile, then make it transparent
+                    subsurface = ttoken.subsurface(((char.token.get_width()-self.ADJUSTED_TILE_WIDTH)/2, char.token.get_height()-self.ADJUSTED_TILE_HEIGHT, self.ADJUSTED_TILE_WIDTH, self.ADJUSTED_TILE_HEIGHT))
+                    subsurface.fill((0,0,0,0))
                     self.window.blit(ttoken,(charX, charY))  
                 
             if not anyAction:
@@ -489,19 +560,6 @@ class Game:
             # Update display
             pygame.display.flip()
             clock.tick(self.clockSpeed)
-    
-    # Found with some googling. Adjusted so it would copy the surface instead of adjusting the image directly
-    @staticmethod  
-    def grayscale_image(surface):
-        width, height = surface.get_size()
-        nsurface = surface.copy()
-        for x in range(width):
-            for y in range(height):
-                red, green, blue, alpha = nsurface.get_at((x, y))
-                L = 0.3 * red + 0.59 * green + 0.11 * blue
-                gs_color = (L, L, L, alpha)
-                nsurface.set_at((x, y), gs_color)
-        return nsurface
             
     def draw_stats(self, character, enemy=0):
         optionsW = 4
@@ -748,7 +806,7 @@ class Game:
         self.cursor.set_alpha()
         return flip
     
-    def cursor_movement(self, flip, currentEnemyI, currentCharI):
+    def cursor_movement(self, flip, currentEnemyI, currentCharI):#Show FPS
             moveDelay = 15/self.clockSpeed
             keys = pygame.key.get_pressed()
             w, h = pygame.display.get_surface().get_size()

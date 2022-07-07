@@ -8,6 +8,18 @@ import random
 import pygame
 from Item import Weapon, WeaponTraits
 
+# Found with some googling. Adjusted so it would copy the surface instead of adjusting the image directly
+def grayscale_image(surface):
+    width, height = surface.get_size()
+    nsurface = surface.copy()
+    for x in range(width):
+        for y in range(height):
+            red, green, blue, alpha = nsurface.get_at((x, y))
+            L = 0.3 * red + 0.59 * green + 0.11 * blue
+            gs_color = (L, L, L, alpha)
+            nsurface.set_at((x, y), gs_color)
+    return nsurface
+
 class Unit():
     def __init__(self, name, unitClass, x, y):
         self.tokenScaled = False
@@ -26,6 +38,10 @@ class Unit():
         self.moved = False
         self.acted = False
         self.dead = False
+        
+        self.unresolved_attack = []
+        self.unresolved_move = []
+        self.next_square = []
         
         self.exp = 0
         self.level = 1
@@ -51,6 +67,27 @@ class Unit():
     def move(self, newX, newY):
         self.x = newX
         self.y = newY
+        if self.unresolved_move.__len__() > 0:
+            if self.x == self.unresolved_move[0] and self.y == self.unresolved_move[1]:
+                self.unresolved_move = []
+                self.next_square = []
+                self.moving = False
+                self.moved = True
+            elif self.next_square.__len__() == 0 or (self.x == self.next_square[0] and self.y == self.next_square[1]):
+                self.__next_move()
+    
+    def __next_move(self):
+        if self.unresolved_move.__len__() > 0:
+            if abs(self.x-self.unresolved_move[0]) > abs(self.y-self.unresolved_move[1]):
+                x = 1
+                if self.x > self.unresolved_move[0]:
+                    x = -1
+                self.next_square = [self.x+x,self.y]
+            else:
+                y = 1
+                if self.y > self.unresolved_move[1]:
+                    y = -1
+                self.next_square = [self.x,self.y+y]
         
     def equip_weapon(self, weapon):
         self.weapon = weapon
@@ -93,6 +130,7 @@ class Unit():
         if self.currentHP <= 0:
             self.dead = True
             self.currentHP = 0
+        print("status {}: hp {}".format(self.name,self.currentHP))
     
     def add_exp(self, enemyLevel, kill=0):
         if enemyLevel == 0:
@@ -106,13 +144,14 @@ class Unit():
             exp = 100
         
         self.exp += round(exp)
-        print(self.exp)
+        #print(self.exp)
     
 class MagicUnit(Unit):
     def __init__(self, name, x, y, personalGrowths, personalStats, icon, portrait):
         super().__init__(name, "Mage", x, y)
         self.weapon = WeaponTraits.build_weapon("Fire Book")
         self.token = pygame.image.load(icon)
+        self.gray_token = grayscale_image(self.token)
         self.icon = pygame.image.load(portrait)
         self.exp = 0
         self.level = 1
@@ -193,6 +232,7 @@ class ScoutUnit(Unit):
         super().__init__(name, "Scout", x, y)
         self.token = pygame.image.load(icon)
         self.icon = pygame.image.load(portrait)
+        self.gray_token = grayscale_image(self.token)
         self.weapon = WeaponTraits.build_weapon("Iron Shortsword")
         self.exp = 0
         self.level = 1
@@ -273,6 +313,7 @@ class InfantryUnit(Unit):
         super().__init__(name, "Infantry", x, y)
         self.token = pygame.image.load(icon)
         self.icon = pygame.image.load(portrait)
+        self.gray_token = grayscale_image(self.token)
         self.weapon = WeaponTraits.build_weapon("Iron Sword")
         self.exp = 0
         self.level = 1
@@ -353,6 +394,7 @@ class MountedUnit(Unit):
         super().__init__(name, "Mounted", x, y)
         self.token = pygame.image.load(icon)
         self.icon = pygame.image.load(portrait)
+        self.gray_token = grayscale_image(self.token)
         self.weapon = WeaponTraits.build_weapon("Iron Lance")
         self.exp = 0
         self.level = 1
