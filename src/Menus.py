@@ -211,7 +211,6 @@ def char_select_menu(screen):
         lines = f.readlines()
     for line in lines:
         chosenChars.append(line.strip())
-    print(chosenChars)
     
     selecting =  True
     click = False

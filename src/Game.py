@@ -126,6 +126,11 @@ class Game:
             unit.dead = False
             unit.acted = False
             unit.moved = False
+            unit.attacking = False
+            unit.moving = False
+            unit.unresolved_attack = []
+            unit.unresolved_move = []
+            unit.next_square = []
         characters = self.load_team()
         self.character = characters[0]
         self.combat_manager = CombatManager(characters)
@@ -205,23 +210,25 @@ class Game:
         showAttacks = False
         menuSelected = 1
         options = 1
+        self.combat_manager.update_cost_map(self.myTiles.tiles, self.spriteMap)
         while self.running:
             #Render_Text(str(int(clock.get_fps())), (255,0,0), (0,0))
-            #print("FPS:{}  {}".format(int(clock.get_fps()),self.clockSpeed))
+            #print("{} FPS".format(int(clock.get_fps())))
             clicked = False
+            # Process the next enemy's turn. Double check there's not an issue after
             if self.combat_manager.current_turn() == CombatManager.ENEMY_TURN and not cenemyI < self.combat_manager.enemies.__len__():
                 cenemyI = 0
-                self.combat_manager.next_turn()
-                print(cenemyI)
-                print('next turn pls')
+                self.combat_manager.next_turn(self.myTiles.tiles, self.spriteMap)
+                self.cursor.x = self.character.x * self.ADJUSTED_TILE_WIDTH
+                self.cursor.y = self.character.y * self.ADJUSTED_TILE_HEIGHT
             currentEnemy = self.combat_manager.enemies[cenemyI]
             while currentEnemy.dead:
                 cenemyI+=1
                 if self.combat_manager.current_turn() == CombatManager.ENEMY_TURN and not cenemyI < self.combat_manager.enemies.__len__():
                     cenemyI = 0
-                    self.combat_manager.next_turn()
-                    print(cenemyI)
-                    print('next turn pls')
+                    self.combat_manager.next_turn(self.myTiles.tiles, self.spriteMap)
+                    self.cursor.x = self.character.x * self.ADJUSTED_TILE_WIDTH
+                    self.cursor.y = self.character.y * self.ADJUSTED_TILE_HEIGHT
                 currentEnemy = self.combat_manager.enemies[cenemyI]
             
             # Redraw map
@@ -252,6 +259,7 @@ class Game:
                             if self.character.moving == True:
                                 self.spriteMap[self.character.originalX][self.character.originalY] = 'n'
                                 self.spriteMap[self.character.x][self.character.y] = 'c'
+                                self.combat_manager.update_cost_map(self.myTiles.tiles, self.spriteMap)
                                 self.character.moving = False
                                 self.character.moved = True
                                 if self.character.acted:
@@ -347,76 +355,97 @@ class Game:
             cx = int(self.cursor.x/self.ADJUSTED_TILE_WIDTH)
             cy = int(self.cursor.y/self.ADJUSTED_TILE_HEIGHT)
                                 
+            # Enemy turn processing
             if self.combat_manager.current_turn() == CombatManager.ENEMY_TURN:
+                # If the enemy has been given move orders and is processing them, move to the next square
                 if not currentEnemy.moved and currentEnemy.moving:
-                    currentEnemy.move(currentEnemy.next_square[0],currentEnemy.next_square[1])
-                    #print(currentEnemy.moving)
+                    if currentEnemy.unresolved_move.__len__() == 1 and (self.spriteMap[currentEnemy.next_square[0]][currentEnemy.next_square[1]] == 'c' or self.spriteMap[currentEnemy.next_square[0]][currentEnemy.next_square[1]] == 'e'):
+                        currentEnemy.unresolved_move = []
+                        currentEnemy.next_square = []
+                        currentEnemy.moved = True
+                        currentEnemy.moving = False
+                    else:
+                        self.spriteMap[currentEnemy.x][currentEnemy.y] = 'n'
+                        currentEnemy.resolve_move()
+                        self.spriteMap[currentEnemy.x][currentEnemy.y] = 'e'
+                        self.cursor.x = currentEnemy.x * self.ADJUSTED_TILE_WIDTH
+                        self.cursor.y = currentEnemy.y * self.ADJUSTED_TILE_HEIGHT
                 elif not currentEnemy.acted and currentEnemy.attacking:
-                    print('attacking')
-                    print(currentEnemy.unresolved_attack,self.combat_manager.characters.__len__())
+                    # If the enemy has been given attack orders, do it after having finished any movement
                     ti = 0
                     for t in self.combat_manager.characters:
-                        print("{} == {}".format(t.name,currentEnemy.unresolved_attack))
                         if t.name == currentEnemy.unresolved_attack:
                             break
                         ti+=1
+                    target = -1
                     if ti < self.combat_manager.characters.__len__():
                         target = self.combat_manager.characters[ti]
                         if currentEnemy.can_attack_stationary(target.x,target.y):
-                            print("targetted")
                             CombatManager.fight(currentEnemy,target) 
-                            print("resolved t:{} {} c:{} {}".format(target.dead,target.currentHP,currentEnemy.dead,currentEnemy.currentHP))
                     currentEnemy.attacking = True
                     currentEnemy.acted = True
                     currentEnemy.moved = True
-                    if target.dead and target in self.combat_manager.characters:
-                        self.spriteMap[target.x][target.y] = 'n'
-                        self.combat_manager.characters.remove(target)
-                        if self.combat_manager.characters.__len__() > 0:
-                            self.character = self.combat_manager.characters[0]
+                    if target in self.combat_manager.characters:
+                        if target.dead:
+                            self.spriteMap[target.x][target.y] = 'n'
+                            self.combat_manager.characters.remove(target)
+                            if self.combat_manager.characters.__len__() > 0:
+                                self.character = self.combat_manager.characters[0]
+                            else:
+                                # Game over
+                                self.running = False
+                        elif currentEnemy.dead:
+                            self.spriteMap[currentEnemy.x][currentEnemy.y] = 'n'
+                            self.combat_manager.enemies.remove(currentEnemy)
+                            # Defeated the attacking enemy, 100% exp
+                            target.add_exp(target.level,1)
+                            if self.combat_manager.enemies.__len__() <= 0:
+                                # You win
+                                self.running = False
+                        elif not target.can_attack_stationary(currentEnemy.x,currentEnemy.y):
+                            # Survived an attack, but enemy survived too. Reduced exp
+                            target.add_exp(target.level,0)
                         else:
-                            # Game over
-                            self.running = False
-                    elif currentEnemy.dead:
-                        self.spriteMap[currentEnemy.x][currentEnemy.y] = 'n'
-                        self.combat_manager.enemies.remove(currentEnemy)
-                        # Defeated the attacking enemy, 100% exp
-                        target.add_exp(target.level,1)
-                        if self.combat_manager.enemies.__len__() <= 0:
-                            # You win
-                            self.running = False
-                    elif not target.can_attack_stationary(currentEnemy.x,currentEnemy.y):
-                        # Survived an attack, but enemy survived too. Reduced exp
-                        target.add_exp(target.level,0)
-                    else:
-                        # Survied an attack, but couldn't attack back. Heavily reduced exp
-                        target.add_exp(0,0)
-                    print('attacked')
+                            # Survied an attack, but couldn't attack back. Heavily reduced exp
+                            target.add_exp(0,0)
                 elif currentEnemy.moved or currentEnemy.acted:
+                    # If the unit has already attacked or moved, move to the next enemy in the list
                     currentEnemy.moved = True
                     currentEnemy.acted = True
                     cenemyI+=1
                 else:
-                    print(cenemyI)
+                    self.combat_manager.update_cost_map(self.myTiles.tiles, self.spriteMap)
+                    # If the unit has no orders and hasn't moved yet, generate the orders through the AI function
                     # Set [ type of action , location for movement , target for attack ]
                     set = self.combat_manager.ai(self.spriteMap,self.myTiles, currentEnemy)
+                    #print(set[0])
                     # NPC decides to move twice
                     if set[0] == CombatManager.MOVE_MOVE:
                         currentEnemy.moving = True
-                        currentEnemy.unresolved_move = [set[1][0],set[1][1]]
-                        currentEnemy.move(currentEnemy.x,currentEnemy.y)
+                        currentEnemy.unresolved_move = set[1]
+                        self.spriteMap[currentEnemy.x][currentEnemy.y] = 'n'
+                        currentEnemy.resolve_move()
+                        self.spriteMap[currentEnemy.x][currentEnemy.y] = 'e'
                     # NPC decides to attack
-                    elif set[0] == CombatManager.ACTION_MOVE or set[0] == CombatManager.ACTION:
-                        print('attacky')
-                        #target = self.combat_manager.characters[set[2]]
+                    elif set[0] == CombatManager.ACTION_MOVE:
                         currentEnemy.unresolved_attack = set[2]
+                        print(set[2])
                         currentEnemy.attacking = True
                         # NPC also decides to move
-                        if set[0] == CombatManager.ACTION_MOVE:
-                            currentEnemy.moving = True
-                            currentEnemy.unresolved_move = [set[1][0],set[1][1]]
-                            currentEnemy.move(currentEnemy.x,currentEnemy.y)
+                        currentEnemy.moving = True
+                        currentEnemy.unresolved_move = set[1]
+                        self.spriteMap[currentEnemy.x][currentEnemy.y] = 'n'
+                        currentEnemy.resolve_move()
+                        self.spriteMap[currentEnemy.x][currentEnemy.y] = 'e'
+                        #currentEnemy.move(currentEnemy.x,currentEnemy.y)
                         #CombatManager.fight(char,target) 
+                    elif set[0] == CombatManager.ACTION:
+                        print(set[1])
+                        currentEnemy.unresolved_attack = set[1]
+                        currentEnemy.attacking = True
+                    else:
+                        currentEnemy.acted = True
+                        currentEnemy.moved = True
                             
                 #self.combat_manager.next_turn()
                 
@@ -479,7 +508,7 @@ class Game:
                     self.window.blit(ttoken,(charX, charY))  
                 
             if not anyAction:
-                self.combat_manager.next_turn()
+                self.combat_manager.next_turn(self.myTiles.tiles, self.spriteMap)
                 
             # Draw menu if action button is clicked. pass in object clicked on to figure out which options show up
             if not self.combat_manager.current_turn() == CombatManager.PLAYER_TURN:
@@ -501,7 +530,7 @@ class Game:
                 for xline in self.myTiles.tiles:
                     y = 0
                     for yline in xline:
-                        if self.character.can_move(x, y) and yline.block == 0:
+                        if self.character.can_move(x, y) and self.combat_manager.map[x][y] != 4:
                             sidebar.fill((33,237,217))
                             self.window.blit(sidebar,(x*self.ADJUSTED_TILE_WIDTH, y*self.ADJUSTED_TILE_HEIGHT))
                         elif self.character.can_attack(x, y):
@@ -746,7 +775,7 @@ class Game:
             self.character.originalX = -1
             menu = False
         if option == 'End Turn':
-            self.combat_manager.next_turn()
+            self.combat_manager.next_turn(self.myTiles.tiles, self.spriteMap)
             menu = False
         if option == 'Cancel':
             menu = False

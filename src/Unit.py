@@ -7,6 +7,7 @@ Purpose: Holds information for units on the game map
 import random
 import pygame
 from Item import Weapon, WeaponTraits
+from aStar import astar
 
 # Found with some googling. Adjusted so it would copy the surface instead of adjusting the image directly
 def grayscale_image(surface):
@@ -39,6 +40,9 @@ class Unit():
         self.acted = False
         self.dead = False
         
+        # A* calculation
+        self.move_map = []
+        
         self.unresolved_attack = []
         self.unresolved_move = []
         self.next_square = []
@@ -67,62 +71,81 @@ class Unit():
     def move(self, newX, newY):
         self.x = newX
         self.y = newY
-        if self.unresolved_move.__len__() > 0:
-            if self.x == self.unresolved_move[0] and self.y == self.unresolved_move[1]:
-                self.unresolved_move = []
-                self.next_square = []
-                self.moving = False
-                self.moved = True
-            elif self.next_square.__len__() == 0 or (self.x == self.next_square[0] and self.y == self.next_square[1]):
-                self.__next_move()
+        
+    def resolve_move(self):
+        if not self.next_square == []:
+            print(self.next_square)
+            self.x = self.next_square[0]
+            self.y = self.next_square[1]
+            self.__next_move()
+        elif self.unresolved_move.__len__() > 0:
+            self.next_square = list(self.unresolved_move[0])
+        
     
     def __next_move(self):
-        if self.unresolved_move.__len__() > 0:
-            if abs(self.x-self.unresolved_move[0]) > abs(self.y-self.unresolved_move[1]):
-                x = 1
-                if self.x > self.unresolved_move[0]:
-                    x = -1
-                self.next_square = [self.x+x,self.y]
-            else:
-                y = 1
-                if self.y > self.unresolved_move[1]:
-                    y = -1
-                self.next_square = [self.x,self.y+y]
+        self.next_square = []
+        if self.unresolved_move.__len__() > 1:
+            self.next_square = list(self.unresolved_move[0])
+            self.unresolved_move.remove(self.unresolved_move[0])
+        else:
+            self.unresolved_move = []
+            self.moving = False
+            self.moved = True
         
     def equip_weapon(self, weapon):
         self.weapon = weapon
         
     def can_move(self, newX, newY):
-        dx = abs(self.originalX - newX)
-        dy = abs(self.originalY - newY)
-        if dx+dy > self.mov:
-            return False
-        else:
+        if self.move_map[newX][newY] != -1 and self.move_map[newX][newY] < self.mov:
             return True
+        else:
+            return False
+        #dx = abs(self.originalX - newX)
+        #dy = abs(self.originalY - newY)
+        #if dx+dy > self.mov:
+        #    return False
+        #else:
+        #    return True
         
     def can_move_move(self, newX, newY):
-        dx = abs(self.originalX - newX)
+        if self.move_map[newX][newY] != -1 and self.move_map[newX][newY] < self.mov*2:
+            return True
+        else:
+            return False
+        '''dx = abs(self.originalX - newX)
         dy = abs(self.originalY - newY)
         if dx+dy > self.mov+self.mov:
             return False
         else:
-            return True
+            return True'''
         
     def can_attack(self, newX, newY):
-        dx = abs(self.originalX - newX)
+        if self.x == newX and self.y == newY:
+            return False
+        elif self.move_map[newX][newY] != -1 and self.move_map[newX][newY] < self.mov+self.weapon.range:
+            return True
+        else:
+            return False
+        '''dx = abs(self.originalX - newX)
         dy = abs(self.originalY - newY)
         if (dx+dy) > (self.mov+self.weapon.range):
             return False
         else:
-            return True
+            return True'''
             
     def can_attack_stationary(self, newX, newY):
-        dx = abs(self.x - newX)
+        if self.x == newX and self.y == newY:
+            return False
+        elif self.move_map[newX][newY] != -1 and self.move_map[newX][newY] <= self.weapon.range:
+            return True
+        else:
+            return False
+        '''dx = abs(self.x - newX)
         dy = abs(self.y - newY)
         if dx+dy > self.weapon.range:
             return False
         else:
-            return True
+            return True'''
     
     def take_damage(self, damage):
         if damage > 0:

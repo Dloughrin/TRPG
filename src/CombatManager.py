@@ -6,7 +6,9 @@ Purpose: Manages turns, holds list of enemies and allies in a battle,
         and resolves attacks
 '''
 import random
-
+from InterpretMap import *
+from aStar import astar_map,astar
+from PyQt5.Qt5.qml.Qt.labs import location
 
 class CombatManager():
     ALLY_TURN   = '2' # Maybe
@@ -24,6 +26,7 @@ class CombatManager():
         
         self.__turn = CombatManager.PLAYER_TURN
         self.__turn_count = 0
+        self.map = []
         self.count_acted()
         
     def count_acted(self):
@@ -35,14 +38,55 @@ class CombatManager():
                 self.actions_available += 1
             if not char.moved:
                 self.moves_available += 1
+    
+    # For A*
+    def update_cost_map(self,terrain,sprites):
+        print("updating")
+        tmap = []
+        x = 0
+        for row in terrain:
+            y = 0
+            rrow = []
+            for pos in row:
+                val = 1
+                if pos.block == 1:
+                    val = -1
+                elif pos.slow == 1:
+                    val = 2
+                if sprites[x][y] == 'c':
+                    val = 3
+                elif sprites[x][y] == 'e':
+                    val = 4
+                rrow.append(val)
+                y+=1
+            x+=1
+            tmap.append(rrow)
+        self.map = tmap
+        
+        for char in self.characters:
+            char.move_map = astar_map(self.map, (char.x,char.y), char.mov*2, allied = True, allow_diagonal_movement = False)
+        for char in self.enemies:
+            char.move_map = astar_map(self.map, (char.x,char.y), char.mov*2, allied = False, allow_diagonal_movement = False)
                 
-    def next_turn(self):
+    def next_turn(self,terrain,sprites):
+        self.update_cost_map(terrain,sprites)
         for char in self.enemies:
             char.moved = False
             char.acted = False
+            char.attacking = False
+            char.moving = False
+            char.unresolved_attack = []
+            char.unresolved_move = []
+            char.next_square = []
         for char in self.characters:
             char.moved = False
             char.acted = False
+            char.attacking = False
+            char.moving = False
+            char.unresolved_attack = []
+            char.unresolved_move = []
+            char.next_square = []
+        
         if(self.__turn == CombatManager.ENEMY_TURN):
             self.__turn = CombatManager.PLAYER_TURN
         elif(self.__turn == CombatManager.PLAYER_TURN):
@@ -65,90 +109,72 @@ class CombatManager():
             else:
                 i += 1
     
+    '''
+    Looks to see if units are in range for movement or attack, then 
+    decides which until to run at and attack based on how much damage
+    they can each do to each other in one attack
+    '''
     def ai(self, locations, terrain, npc):
-        action = []
-        npc.originalX = npc.x
-        npc.originalY = npc.y
-        inrange = 0
-        inrangeCoords = []
-        closestDist = -1
-        closestCoord = []
+        in_range_units= []
         x = 0
-        for xline in locations:
+        for line in locations:
             y = 0
-            for coord in xline:
-                if coord == 'c':
-                    if npc.can_attack(x,y):
-                        inrange += 1
-                        inrangeCoords.append([x,y])
-                    if closestDist == -1 or closestDist > (abs(x-npc.x)+abs(y-npc.y)):
-                        closestDist = (abs(x-npc.x)+abs(y-npc.y))
-                        closestCoord = [x,y]
-                y += 1
-            x += 1
-        
-        if inrange == 0:  
-            if closestCoord.__len__() == 0:
-                return [CombatManager.WAIT]
-            x = 0
-            lowestMove = -1
-            lowestCoord = []
-            for xline in locations:
-                y = 0
-                for coord in xline:
-                    if npc.can_move_move(x,y) and not coord == 'c' and not coord == 'e' and not terrain.tiles[x][y].block == 1:
-                        if lowestMove == -1 or lowestMove >= (abs(x-lowestCoord[0])+abs(y-lowestCoord[1])):
-                            lowestCoord = [x,y]
-                            lowestMove = (abs(x-lowestCoord[0])+abs(y-lowestCoord[1]))
-                    y += 1
-                x += 1
-            locations[lowestCoord[0]][lowestCoord[1]] = 'e'
-            locations[npc.originalX][npc.originalY] = 'n'
-            action = [CombatManager.MOVE_MOVE, lowestCoord]
-        else:
-            chosenCoord = inrangeCoords[0]
-            targetI = -1
-            damage = -100
-            for coord in inrangeCoords:
-                z = 0
-                for target in self.characters:
-                    print(target.name)
-                    if target.dead:
-                        print("dead")
-                        continue
-                    damageOK = (damage == -1 or damage < (npc.attack(target) - target.attack(npc)))
-                    if target.x == coord[0] and target.y == coord[1] and damageOK and target.currentHP > 0:
-                        damage = npc.attack(target) - target.attack(npc)
-                        chosenCoord = coord
-                        targetI = z
-                    z += 1
+            #print(locations[x],npc.move_map[x])
+            for coord in line:
+                if coord == 'c' and npc.can_move_move(x,y):
+                    print(coord)
+                    for unit in self.characters:
+                        if unit.x == x and unit.y == y:
+                            npca = npc.attack(unit)
+                            unita = npc.attack(npc)
+                            damageVal = npca - unita
+                            record = {"x":x, "y":y,"name":unit.name, "prio":damageVal}
+                            in_range_units.append(record)
+                y+=1
+            x+=1
             
-            if not npc.can_attack_stationary(chosenCoord[0],chosenCoord[1]):
-                x = 0
-                lowestMove = -1
-                lowestCoord = []
-                for xline in locations:
-                    y = 0
-                    for coord in xline:
-                        if npc.can_move(x,y) and not coord == 'c' and not coord == 'e' and not terrain.tiles[x][y].block == 1:
-                            if lowestMove == -1 or lowestMove > (abs(x-chosenCoord[0])+abs(y-chosenCoord[1])):
-                                lowestCoord = [x,y]
-                                lowestMove = (abs(x-chosenCoord[0])+abs(y-chosenCoord[1]))
-                        y += 1
-                    x += 1
-                locations[lowestCoord[0]][lowestCoord[1]] = 'e'
-                locations[npc.originalX][npc.originalY] = 'n'
-                action = [CombatManager.ACTION_MOVE, lowestCoord, self.characters[targetI].name]
-            else:
-                targetI = -1
-                action = [CombatManager.ACTION, closestCoord, targetI]
-        return action
-                    
-            # Are there targets within movement range? Count them. Figure out which is the closest
-            # If none are within range, move towards the closest enemy twice
-            # If there's one in range, move to it then attack. If there's multiple, find which one takes the most damage while minimizing my damage taken
-            # Append info to actions: Where to move and if attacking, and who
+        
+        print(in_range_units.__len__())
+        if in_range_units.__len__() > 0:
+            in_range_units = sorted(in_range_units,key=lambda x: x["prio"], reverse=True)
+            rangeI = 0
+            path = -1
+            while path == -1 and rangeI < in_range_units.__len__():
+                if npc.can_attack_stationary(in_range_units[rangeI]["x"],in_range_units[rangeI]["y"]):
+                    print("attacking")
+                    return [CombatManager.ACTION,in_range_units[rangeI]["name"]]
+                elif npc.can_attack(in_range_units[rangeI]["x"],in_range_units[rangeI]["y"]):
+                    print("move attacking")
+                    path = astar(self.map, (npc.x,npc.y), (in_range_units[rangeI]["x"],in_range_units[rangeI]["y"]), allied=False, allow_diagonal_movement = False)
+                    path = CombatManager.find_point(locations, path)
+                    if path == -1:
+                        pass
+                    else:
+                        return [CombatManager.ACTION_MOVE, path, in_range_units[rangeI]["name"]]
+                elif npc.can_move_move(in_range_units[rangeI]["x"],in_range_units[rangeI]["y"]):
+                    print("moving")
+                    path = astar(self.map, (npc.x,npc.y), (in_range_units[rangeI]["x"],in_range_units[rangeI]["y"]), allied=False, allow_diagonal_movement = False) 
+                    path = CombatManager.find_point(locations, path)
+                    if path == -1:
+                        pass
+                    else:
+                        return [CombatManager.MOVE_MOVE, path]
+                rangeI += 1
                 
+            if path == -1:
+                return [CombatManager.WAIT]
+        
+        return [CombatManager.WAIT]
+    
+           
+    @staticmethod
+    def find_point(locations,path):
+        if path.__len__() <= 1:
+            return -1
+        elif locations[path[-2][0]][path[-2][1]] == 'c' or locations[path[-2][0]][path[-2][1]] == 'e':
+            return CombatManager.find_point(locations,path[:-1])
+        else:
+            return path
     
     @staticmethod
     def fight(attacker, defender):
@@ -195,6 +221,8 @@ class CombatManager():
     def attack_unit(target, attacker):
         hits = CombatManager.calc_speed(target, attacker)
         damages = []
+        attacker.currentX = attacker.x
+        attacker.currentY = attacker.y
         for i in range(0, hits):
             if attacker.can_attack_stationary(target.x, target.y):
                 crit = CombatManager.calc_crit(target,attacker)
@@ -202,6 +230,8 @@ class CombatManager():
                 damages.append(damage)
             else:
                 return [0,[-2]]
+        attacker.currentX = -1
+        attacker.currentY = -1
         return [hits,damages]
     
     @staticmethod
