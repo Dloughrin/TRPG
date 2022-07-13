@@ -10,6 +10,7 @@ from multiprocessing import sys
 from GameMap import GameMap
 from InterpretMap import TileMap
 from Options import Options
+#import Utility
 from Unit import UnitGenerator
 from CombatManager import CombatManager
 import random
@@ -58,6 +59,14 @@ class Game:
                 ah = (tchar.token.get_height()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
             tchar.token = pygame.transform.scale(tchar.token, (aw,ah))'''
             self.units.append(tchar)
+            
+    def new_game(self):
+        nunits = []
+        for charName in UnitGenerator.unit_classes:  
+            tchar = UnitGenerator.create_unit('The ' + charName, charName, '../assets/characters/' + charName.lower() +'Token.png', '../assets/characters/' + charName.lower() + '.png') 
+            nunits.append(tchar)
+        self.units = nunits
+        self.reset_game()
     
     def load_team(self):
         charNames = []
@@ -71,7 +80,13 @@ class Game:
         for name in charNames:
             for char in self.units:
                 if 'The ' + name == char.name:
-                    if not char.tokenScaled and char.token.get_width() == char.token.get_height():
+                    if not char.tokenScaled and char.token.get_width() < UnitGenerator.tokenSize/2 and char.token.get_width() == char.token.get_height():
+                        #aw = char.token.get_width()/self.ADJUSTED_TILE_WIDTH
+                        #ah = char.token.get_height()/self.ADJUSTED_TILE_HEIGHT
+                        char.tokenScaled = True
+                        char.token = pygame.transform.scale(char.token, (self.ADJUSTED_TILE_WIDTH,self.ADJUSTED_TILE_HEIGHT))
+                        char.gray_token = pygame.transform.scale(char.gray_token, (self.ADJUSTED_TILE_WIDTH,self.ADJUSTED_TILE_HEIGHT))
+                    elif not char.tokenScaled and char.token.get_width() == char.token.get_height():
                         aw = (min(85,char.token.get_width())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
                         ah = (min(85,char.token.get_height())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
                         char.tokenScaled = True

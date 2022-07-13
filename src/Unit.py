@@ -7,7 +7,6 @@ Purpose: Holds information for units on the game map
 import random
 import pygame
 from Item import Weapon, WeaponTraits
-from aStar import astar
 
 # Found with some googling. Adjusted so it would copy the surface instead of adjusting the image directly
 def grayscale_image(surface):
@@ -180,7 +179,7 @@ class MagicUnit(Unit):
         self.level = 1
         self.mov = 3
         self.stats = {
-                "HP"     : 6 + personalStats[0],
+                "HP"     : 15 + personalStats[0],
                 "str"    : 0  + personalStats[1],
                 "mag"    : 3 + personalStats[2],
                 "skl"    : 1 + personalStats[3],
@@ -207,9 +206,9 @@ class MagicUnit(Unit):
             
     def __set_growths(self,personalGrowths):
         self.growths = {
-                "HP"     : 35 + personalGrowths[0],
-                "str"    : 25 + personalGrowths[1],
-                "mag"    : 55 + personalGrowths[2],
+                "HP"     : 45 + personalGrowths[0],
+                "str"    : 20 + personalGrowths[1],
+                "mag"    : 50 + personalGrowths[2],
                 "skl"    : 30 + personalGrowths[3],
                 "spd"    : 45 + personalGrowths[4],
                 "lck"    : 40 + personalGrowths[5],
@@ -261,7 +260,7 @@ class ScoutUnit(Unit):
         self.level = 1
         self.mov = 4
         self.stats = {
-                "HP"     : 5 + personalStats[0],
+                "HP"     : 14 + personalStats[0],
                 "str"    : 2  + personalStats[1],
                 "mag"    : 0 + personalStats[2],
                 "skl"    : 2 + personalStats[3],
@@ -288,14 +287,14 @@ class ScoutUnit(Unit):
         
     def __set_growths(self,personalGrowths):
         self.growths = {
-                "HP"     : 40 + personalGrowths[0],
+                "HP"     : 50 + personalGrowths[0],
                 "str"    : 35 + personalGrowths[1],
                 "mag"    : 20 + personalGrowths[2],
                 "skl"    : 50 + personalGrowths[3],
                 "spd"    : 55 + personalGrowths[4],
                 "lck"    : 50 + personalGrowths[5],
-                "def"    : 25 + personalGrowths[6],
-                "res"    : 25 + personalGrowths[7]
+                "def"    : 20 + personalGrowths[6],
+                "res"    : 20 + personalGrowths[7]
             }
     
     def __level_up(self):
@@ -342,7 +341,7 @@ class InfantryUnit(Unit):
         self.level = 1
         self.mov = 3
         self.stats = {
-                "HP"     : 8 + personalStats[0],
+                "HP"     : 17 + personalStats[0],
                 "str"    : 3  + personalStats[1],
                 "mag"    : 0 + personalStats[2],
                 "skl"    : 1 + personalStats[3],
@@ -369,14 +368,14 @@ class InfantryUnit(Unit):
         
     def __set_growths(self,personalGrowths):
         self.growths = {
-                "HP"     : 50 + personalGrowths[0],
+                "HP"     : 60 + personalGrowths[0],
                 "str"    : 40 + personalGrowths[1],
                 "mag"    : 15 + personalGrowths[2],
                 "skl"    : 45 + personalGrowths[3],
                 "spd"    : 40 + personalGrowths[4],
                 "lck"    : 30 + personalGrowths[5],
-                "def"    : 45 + personalGrowths[6],
-                "res"    : 35 + personalGrowths[7]
+                "def"    : 40 + personalGrowths[6],
+                "res"    : 30 + personalGrowths[7]
             }
     
     def __level_up(self):
@@ -414,7 +413,7 @@ class InfantryUnit(Unit):
 
 class MountedUnit(Unit):
     def __init__(self, name, x, y, personalGrowths, personalStats, icon, portrait):
-        super().__init__(name, "Mounted", x, y)
+        super().__init__(name, "Cavalry", x, y)
         self.token = pygame.image.load(icon)
         self.icon = pygame.image.load(portrait)
         self.gray_token = grayscale_image(self.token)
@@ -423,7 +422,7 @@ class MountedUnit(Unit):
         self.level = 1
         self.mov = 6
         self.stats = {
-                "HP"     : 8 + personalStats[0],
+                "HP"     : 17 + personalStats[0],
                 "str"    : 2 + personalStats[1],
                 "mag"    : 0 + personalStats[2],
                 "skl"    : 3 + personalStats[3],
@@ -450,14 +449,14 @@ class MountedUnit(Unit):
         
     def __set_growths(self,personalGrowths):
         self.growths = {
-                "HP"     : 55 + personalGrowths[0],
+                "HP"     : 65 + personalGrowths[0],
                 "str"    : 60 + personalGrowths[1],
                 "mag"    : 15 + personalGrowths[2],
-                "skl"    : 45 + personalGrowths[3],
+                "skl"    : 40 + personalGrowths[3],
                 "spd"    : 20 + personalGrowths[4],
                 "lck"    : 20 + personalGrowths[5],
                 "def"    : 50 + personalGrowths[6],
-                "res"    : 35 + personalGrowths[7]
+                "res"    : 30 + personalGrowths[7]
             }
     
     def __level_up(self):
@@ -509,7 +508,7 @@ class UnitGenerator:
             if boss == 1:
                 for x in personalGrowths:
                     x += 10
-            personalStats.extend((1,1,0,3,2,1,1,1)) 
+            personalStats.extend((4,1,0,3,2,1,1,1)) 
             return InfantryUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
         elif unitClass.lower() == 'soldier':
             personalGrowths.extend((30,25,0,5,30,0,40,20)) 
@@ -524,7 +523,7 @@ class UnitGenerator:
             if boss == 1:
                 for x in personalGrowths:
                     x += 10
-            personalStats.extend((0,1,0,2,3,3,1,2))
+            personalStats.extend((3,1,0,2,3,3,1,2))
             rogue = ScoutUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
             return rogue
         elif unitClass.lower() == 'assassin':
@@ -532,7 +531,7 @@ class UnitGenerator:
             if boss == 1:
                 for x in personalGrowths:
                     x += 10
-            personalStats.extend((3,3,0,1,0,5,0,0))
+            personalStats.extend((6,3,0,1,0,5,0,0))
             assassin = ScoutUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
             return assassin
         elif unitClass.lower() == 'sage':
@@ -540,53 +539,53 @@ class UnitGenerator:
             if boss == 1:
                 for x in personalGrowths:
                     x += 10
-            personalStats.extend((2,0,3,0,1,2,2,2)) 
+            personalStats.extend((5,0,3,0,1,2,2,2)) 
             return MagicUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
         elif unitClass.lower() == 'mage':
             personalGrowths.extend((10,0,55,30,10,20,5,20)) 
             if boss == 1:
                 for x in personalGrowths:
                     x += 10
-            personalStats.extend((1,0,4,1,2,2,0,2)) 
+            personalStats.extend((4,0,4,1,2,2,0,2)) 
             return MagicUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
         elif unitClass.lower() == 'general':
             personalGrowths.extend((50,30,0,10,5,5,30,20)) 
             if boss == 1:
                 for x in personalGrowths:
                     x += 10
-            personalStats.extend((4,2,0,1,0,0,3,2)) 
+            personalStats.extend((7,2,0,1,0,0,3,2)) 
             return MountedUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
         elif unitClass.lower() == 'knight':
             personalGrowths.extend((35,30,0,25,15,5,20,20)) 
             if boss == 1:
                 for x in personalGrowths:
                     x += 10
-            personalStats.extend((3,2,0,2,1,1,1,2)) 
+            personalStats.extend((6,2,0,2,1,1,1,2)) 
             return MountedUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
         elif unitClass.lower() == 'bandit':
             personalGrowths.extend((35,45,0,10,10,0,25,25))
             if boss == 1:
                 for x in personalGrowths:
                     x += 10
-            personalStats.extend((3,4,0,0,0,0,2,3)) 
+            personalStats.extend((6,4,0,0,0,0,2,3)) 
             return InfantryUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
         elif unitClass.lower() == 'cultist':
             personalGrowths.extend((30,0,65,0,10,0,25,20)) 
             if boss == 1:
                 for x in personalGrowths:
                     x += 10
-            personalStats.extend((3,0,4,0,1,0,2,2)) 
+            personalStats.extend((6,0,4,0,1,0,2,2)) 
             return MagicUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
         elif unitClass.lower() == 'paladin':
             personalGrowths.extend((40,20,0,20,0,0,35,35)) 
             if boss == 1:
                 for x in personalGrowths:
                     x += 10
-            personalStats.extend((4,2,0,1,0,0,2,3)) 
+            personalStats.extend((7,2,0,1,0,0,2,3)) 
             return MountedUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
         else:
             personalGrowths.extend((20,20,20,10,20,40,10,10)) 
-            personalStats.extend((0,2,2,1,1,4,1,1)) 
+            personalStats.extend((3,2,2,1,1,4,1,1)) 
             return InfantryUnit(name, 0, 0, personalGrowths, personalStats, icon, portrait)
             
         

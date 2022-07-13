@@ -6,11 +6,12 @@ Purpose: Loads various menu types
 '''
 import pygame
 from pygame.locals import *
+#import Utility 
 from Util import *
 from multiprocessing import sys
 from Game import Game
 from Options import Options
-#from Unit import UnitGenerator
+#from Unit import UnitGenerator 
 
 TILE_HEIGHT = 32
 TILE_WIDTH = 32
@@ -87,13 +88,19 @@ def get_keys(selected, options, mainmenu=True):
                         selected = options
     return [click, running, selected]
 
-def save_menu(screen):
+def save_menu(screen, newGame=False):
     count = 3    
     saving =  True
     load = False
     click = False
+    fading = True
+    fadeMulti = -1
+    fadeAlpha = 255
     selected = 1
     options = 2 + count
+    
+    if newGame:
+        options -= 1
     
     text = ""
     
@@ -118,7 +125,9 @@ def save_menu(screen):
         titlebar.fill((0, 0, 0))
         screen.blit(titlebar,(0, 0))   
         if load:
-            draw_la_text('Select File to Load', font, (255, 255, 255), screen, 0, 0)   
+            draw_la_text('Select File to Load', font, (255, 255, 255), screen, 0, 0)
+        elif newGame:
+            draw_la_text('Select File to Overwrite', font, (255, 255, 255), screen, 0, 0) 
         else: 
             draw_la_text('Select File to Save', font, (255, 255, 255), screen, 0, 0)   
         draw_ra_text(text, font, (255, 255, 255), screen, w, 0) 
@@ -128,16 +137,18 @@ def save_menu(screen):
         screen.blit(buttonbar,(0, h-barSize))  
         
         back_button = pygame.Rect(barSize/6, h-11*barSize/12, barSize*3, barSize-barSize/6)
-        load_button = pygame.Rect(w-barSize*3-barSize/6, h-11*barSize/12, barSize*3, barSize-barSize/6)
         pygame.draw.rect(screen, (140,70,70), back_button)
-        pygame.draw.rect(screen, (70,140,70), load_button)
+        if not newGame:
+            load_button = pygame.Rect(w-barSize*3-barSize/6, h-11*barSize/12, barSize*3, barSize-barSize/6)
+            pygame.draw.rect(screen, (70,140,70), load_button)
         draw_text('Back', font, (0, 0, 0), screen, barSize*1.5+barSize/6, h-11*barSize/12)  
-        if not load:
+        if not load and not newGame:
             draw_text("Switch to load", font, (0, 0, 0), screen, w+barSize*1.5-barSize*3-barSize/6, h-11*barSize/12)  
-        else:
+        elif not newGame:
             draw_text("Switch to save", font, (0, 0, 0), screen, w+barSize*1.5-barSize*3-barSize/6, h-11*barSize/12)  
             
-        draw_text('Note: Game auto saves into a separate slot after every battle', font, (150, 200, 150), screen, w/2, h-11*barSize/12) 
+        if not newGame:
+            draw_text('Note: Game auto saves into a separate slot after every battle', font, (150, 200, 150), screen, w/2, h-11*barSize/12) 
         
         hs = round(h - barSize*2)
         hs = hs - hs/2
@@ -164,14 +175,22 @@ def save_menu(screen):
             
         # Check for key presses
         sselected = selected
-        click, saving, selected = get_keys(selected, options, mainmenu=False)
+        if not fading:
+            click, saving, selected = get_keys(selected, options, mainmenu=False)
+        else:
+            click = False
+            
+        if saving == False:
+            fading = True
+            saving = True
+            
         if abs(selected - sselected) > 1:
             if selected > sselected:
                 selected -= 1
             else:
                 selected += 1
         
-        if selected < options-1:
+        if selected < options-1 or (newGame and selected < options):
             selectedHighlight = pygame.Surface((displayw-borderWidth*2, displayh-borderWidth*2))
             selectedHighlight.set_alpha(alphad)
             selectedHighlight.fill((200, 200, 200))
@@ -180,6 +199,9 @@ def save_menu(screen):
             screen.blit(selectedHighlight,(x+borderWidth, y+borderWidth)) 
             if click:
                 if not load:
+                    if newGame:
+                        game.new_game()
+                        fading = True
                     save_file(game.units,'save{}'.format(selected))
                     text = "Saved in slot {}".format(selected)
                 else:
@@ -189,21 +211,40 @@ def save_menu(screen):
             selectedHighlight = pygame.Surface((barSize*3, barSize-barSize/6))
             selectedHighlight.set_alpha(alphad)
             selectedHighlight.fill((200, 200, 200))
-            if selected == options-1:
+            if selected == options-1 or (newGame and selected == options):
                 screen.blit(selectedHighlight,(barSize/6, h-11*barSize/12)) 
-            elif selected == options:
+            elif selected == options and not newGame:
                 screen.blit(selectedHighlight,(w-barSize*3-barSize/6, h-11*barSize/12)) 
                 
-            if click and selected == options-1:
+            if click and (selected == options-1 or (newGame and selected == options)):
                 saving = False
-            elif click and selected == options:
+            elif click and selected == options and not newGame:
                 load = not load
+            
+        if fading:
+            fadeAlpha += 255/(clockSpeed/4)*fadeMulti
+            print(fadeAlpha)
+            if fadeAlpha >= 255:
+                fadeAlpha = 255
+                saving = False
+            if fadeAlpha <= 0:
+                fadeAlpha = 0
+                fadeMulti = 1
+                fading = False
+                
+            fadeScreen = pygame.Surface((w, h))
+            fadeScreen.set_alpha(fadeAlpha)
+            fadeScreen.fill((0, 0, 0))
+            screen.blit(fadeScreen,(0, 0))
         
         pygame.display.flip()
         mainClock.tick(clockSpeed)
         
 def char_select_menu(screen):
     maxChar = 6
+    fading = True
+    fadeMulti = -1
+    fadeAlpha = 255
     count = UnitGenerator.unit_classes.__len__()
     chosenChars = []
     
@@ -325,7 +366,16 @@ def char_select_menu(screen):
             current += 1
         
         # Check for keys
-        click, selecting, selected = get_keys(selected, options, mainmenu=False)
+        if not fading:
+            click, selecting, selected = get_keys(selected, options, mainmenu=False)
+        else:
+            click = False
+            selecting = True
+            
+        if selecting == False:
+            fading = True
+            selecting = True
+            
         
         if selected-1 < count:
             selectedHighlight = pygame.Surface((displayw-borderWidth*2, displayh-borderWidth*2))
@@ -350,15 +400,31 @@ def char_select_menu(screen):
                 screen.blit(selectedHighlight,(w-barSize*3-barSize/6, h-11*barSize/12)) 
                 
             if click and selected == options-1:
-                selecting = False
+                fading = True
             elif click and selected == options and chosenChars.__len__() > 0:
-                selecting = False
+                fading = True
                 str = ""
                 for char in chosenChars:
                     str += char + '\n'
                 with open('../assets/characters/selected.txt', 'w') as f:
                     f.write(str)
         
+        if fading:
+            fadeAlpha += 255/(clockSpeed/4)*fadeMulti
+                
+            if fadeAlpha >= 255:
+                fadeAlpha = 255
+                selecting = False                
+            if fadeAlpha <= 0:
+                fadeAlpha = 0
+                fading = False
+                fadeMulti = 1
+                
+            fadeScreen = pygame.Surface((w, h))
+            fadeScreen.set_alpha(fadeAlpha)
+            fadeScreen.fill((0, 0, 0))
+            screen.blit(fadeScreen,(0, 0))
+                
         pygame.display.flip()
         mainClock.tick(clockSpeed)
      
@@ -367,6 +433,10 @@ def main_menu(screen):
     game.units = load_file()
     click = False
     running = True
+    fading = False
+    faded = False
+    fadeAlpha = 0
+    fadeMulti = 1
     w, h = pygame.display.get_surface().get_size()
     selected = 1
     options = 6
@@ -400,6 +470,7 @@ def main_menu(screen):
         button_4 = pygame.Rect(w-buttonSize, buttonStart+buttonOffset*3, buttonSize, 50)
         button_5 = pygame.Rect(w-buttonSize, buttonStart+buttonOffset*4, buttonSize, 50)
         button_6 = pygame.Rect(w-buttonSize, buttonStart+buttonOffset*5, buttonSize, 50)
+        button_7 = pygame.Rect(w-buttonSize, buttonStart+buttonOffset*6, buttonSize, 50)
         
         pulse += 1*switch
         if pulse > 60:
@@ -412,64 +483,125 @@ def main_menu(screen):
         if selected == 1:
             pygame.draw.rect(screen, (195+pulse,0+round(pulse*2.5),0+round(pulse*2.5)), button_1)
             if click:
-                start_loop()
-                save_file(game.units)
+                if not fading:
+                    fading = True
+                elif faded:
+                    start_loop()
+                    save_file(game.units)
+                    faded = False
         else:
             pygame.draw.rect(screen, button_color, button_1)
             
         if selected == 2:
             pygame.draw.rect(screen, (195+pulse,0+round(pulse*2.5),0+round(pulse*2.5)), button_2)
             if click:
-                try:
-                    char_select_menu(screen)
-                except Exception as e:
-                    print("Something went wrong in character select:",e)
+                if not fading:
+                    fading = True
+                elif faded:
+                    try:
+                        #TODO:"are you sure?"
+                        save_menu(screen, True)
+                        faded = False
+                    except Exception as e:
+                        print("Something went wrong in new game:",e)
         else:
             pygame.draw.rect(screen, button_color, button_2)
             
         if selected == 3:
             pygame.draw.rect(screen, (195+pulse,0+round(pulse*2.5),0+round(pulse*2.5)), button_3)
             if click:
-                try:
-                    save_menu(screen)
-                except Exception as e:
-                    print("Something went wrong in save menu:",e)
+                if not fading:
+                    fading = True
+                elif faded:
+                    try:
+                        save_menu(screen)
+                        faded = False
+                    except Exception as e:
+                        print("Something went wrong in save menu:",e)
         else:
             pygame.draw.rect(screen, button_color, button_3)
             
         if selected == 4:
             pygame.draw.rect(screen, (195+pulse,0+round(pulse*2.5),0+round(pulse*2.5)), button_4)
             if click:
-                try:
-                    change_map()
-                except Exception as e:
-                    print("Something went wrong when changing maps:",e)
+                if not fading:
+                    fading = True
+                elif faded:
+                    try:
+                        char_select_menu(screen)
+                        faded = False
+                    except Exception as e:
+                        print("Something went wrong in character select:",e)
         else:
             pygame.draw.rect(screen, button_color, button_4)
-
+            
         if selected == 5:
             pygame.draw.rect(screen, (195+pulse,0+round(pulse*2.5),0+round(pulse*2.5)), button_5)
             if click:
-                running = False #TODO: OPTIONS
+                if not fading:
+                    fading = True
+                elif faded:
+                    try:
+                        change_map()
+                        faded = False
+                    except Exception as e:
+                        print("Something went wrong when changing maps:",e)
         else:
             pygame.draw.rect(screen, button_color, button_5)
-            
+
         if selected == 6:
             pygame.draw.rect(screen, (195+pulse,0+round(pulse*2.5),0+round(pulse*2.5)), button_6)
             if click:
-                running = False
+                if not fading:
+                    fading = True
+                elif faded:
+                    running = False #TODO: OPTIONS
+                    faded = False
         else:
             pygame.draw.rect(screen, button_color, button_6)
             
+        if selected == 7:
+            pygame.draw.rect(screen, (195+pulse,0+round(pulse*2.5),0+round(pulse*2.5)), button_7)
+            if click:
+                if not fading:
+                    fading = True
+                elif faded:
+                    running = False
+                    faded = False
+        else:
+            pygame.draw.rect(screen, button_color, button_7)
+            
         draw_text('Start Game', font, (255, 255, 255), screen, w-buttonSize/2, buttonStart)
-        draw_text('Set Characters', font, (255, 255, 255), screen, w-buttonSize/2, buttonStart+buttonOffset)
+        draw_text('New Game', font, (255, 255, 255), screen, w-buttonSize/2, buttonStart+buttonOffset)
         draw_text('Save/Load', font, (255, 255, 255), screen, w-buttonSize/2, buttonStart+buttonOffset*2)
-        draw_text('Change Map', font, (255, 255, 255), screen, w-buttonSize/2, buttonStart+buttonOffset*3)
-        draw_text('Options', font, (255, 255, 255), screen, w-buttonSize/2, buttonStart+buttonOffset*4)
-        draw_text('Quit Game', font, (255, 255, 255), screen, w-buttonSize/2, buttonStart+buttonOffset*5)
+        draw_text('Set Characters', font, (255, 255, 255), screen, w-buttonSize/2, buttonStart+buttonOffset*3)
+        draw_text('Change Map', font, (255, 255, 255), screen, w-buttonSize/2, buttonStart+buttonOffset*4)
+        draw_text('Options', font, (255, 255, 255), screen, w-buttonSize/2, buttonStart+buttonOffset*5)
+        draw_text('Quit Game', font, (255, 255, 255), screen, w-buttonSize/2, buttonStart+buttonOffset*6)
  
         # Check for keys
-        click, running, selected = get_keys(selected, options)
+        if not fading:
+            click, running, selected = get_keys(selected, options)
+        else:
+            click = True
+        
+        if fading:
+            fadeAlpha += 255/(clockSpeed/4)*fadeMulti
+                
+            if fadeAlpha >= 255:
+                fadeAlpha = 255
+                faded = True
+                fadeMulti = -1
+            elif fadeAlpha <= 0:
+                fadeAlpha = 0
+                fading = False
+                click = False
+                fadeMulti = 1
+                
+            fadeScreen = pygame.Surface((w, h))
+            fadeScreen.set_alpha(fadeAlpha)
+            fadeScreen.fill((0, 0, 0))
+            screen.blit(fadeScreen,(0, 0))
  
         pygame.display.flip()
         mainClock.tick(clockSpeed)

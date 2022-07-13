@@ -1,8 +1,8 @@
-Duelist Iron_Sword 1 0 9 4 0 4 3 6 3 3 
-Soldier Iron_Sword 1 0 11 5 0 1 2 5 5 5 
-Rogue Iron_Shortsword 1 0 5 3 0 4 6 10 2 4 
-Assassin Iron_Shortsword 1 0 8 5 0 3 3 12 1 2 
-Sage Fire_Book 1 0 8 0 6 1 4 8 2 5 
-Mage Fire_Book 1 0 7 0 7 2 5 8 0 5 
+Duelist Iron_Sword 1 27 9 4 0 4 3 6 3 3 
+Soldier Iron_Sword 11 12 20 15 5 6 10 9 15 13 
+Rogue Iron_Shortsword 5 95 8 4 0 6 11 14 3 8 
+Assassin Iron_Shortsword 8 50 13 11 1 8 9 19 3 4 
+Sage Fire_Book 3 33 8 0 8 1 4 10 3 7 
+Mage Fire_Book 7 9 13 0 14 4 6 11 1 11 
 General Iron_Lance 1 0 12 4 0 4 2 5 5 2 
 Knight Iron_Lance 1 0 11 4 0 5 3 6 3 2 
