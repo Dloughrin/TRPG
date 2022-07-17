@@ -10,9 +10,9 @@ from multiprocessing import sys
 from GameMap import GameMap
 from InterpretMap import TileMap
 from Options import Options
-#import Utility
 from Unit import UnitGenerator
 from CombatManager import CombatManager
+from aStar import astar_map
 import random
 
 class Cursor:
@@ -320,8 +320,10 @@ class Game:
                                 clicked = True
                         if event.key == Options.BACK:
                             if self.character.moving == True:
+                                self.spriteMap[self.character.x][self.character.y] = 'n'
                                 self.character.move(self.character.originalX,self.character.originalY)
                                 self.spriteMap[self.character.x][self.character.y] = 'c'
+                                self.character.move_map = astar_map(self.combat_manager.map, (self.character.x,self.character.y), self.character.mov*2, allied = True, allow_diagonal_movement = False)
                                 self.character.originalX = -1
                                 self.character.originalY = -1
                                 self.character.moving = False
@@ -331,19 +333,17 @@ class Game:
                                 menuSelected = 1
                             elif self.character.attacking == True:
                                 if not self.character.originalX == -1:
-                                    self.spriteMap[self.character.x][self.character.y] = 'n'
+                                    self.spriteMap[self.character.x][self.character.y] = 'n'#here
                                     self.character.move(self.character.originalX,self.character.originalY)
                                     self.spriteMap[self.character.x][self.character.y] = 'c'
+                                    self.character.move_map = astar_map(self.combat_manager.map, (self.character.x,self.character.y), self.character.mov*2, allied = True, allow_diagonal_movement = False)
                                     self.character.originalX = -1
                                     self.character.originalY = -1
                                     self.character.moved = False
-                                    self.cursor.x = self.character.x * self.ADJUSTED_TILE_WIDTH
-                                    self.cursor.y = self.character.y * self.ADJUSTED_TILE_HEIGHT
+                                self.cursor.x = self.character.x * self.ADJUSTED_TILE_WIDTH
+                                self.cursor.y = self.character.y * self.ADJUSTED_TILE_HEIGHT
                                 menu = True
                                 self.character.attacking = False
-                                menuSelected = 1
-                            elif menu == True and not self.character.moved and not self.character.acted:
-                                menu = False
                                 menuSelected = 1
                             elif menu == True:
                                 menu = False
@@ -352,6 +352,7 @@ class Game:
                                     self.spriteMap[self.character.x][self.character.y] = 'n'
                                     self.character.move(self.character.originalX,self.character.originalY)
                                     self.spriteMap[self.character.x][self.character.y] = 'c'
+                                    self.character.move_map = astar_map(self.combat_manager.map, (self.character.x,self.character.y), self.character.mov*2, allied = True, allow_diagonal_movement = False)
                                     self.character.originalX = -1
                                     self.character.originalY = -1
                                     self.character.moved = False
