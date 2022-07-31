@@ -14,6 +14,7 @@ from Unit import UnitGenerator
 from CombatManager import CombatManager
 from aStar import astar_map
 import random
+import math
 
 class Cursor:
     def __init__(self, image, cursorx=0, cursory=0):
@@ -49,15 +50,7 @@ class Game:
         
     def load_units(self):
         for charName in UnitGenerator.unit_classes:  
-            tchar = UnitGenerator.create_unit('The ' + charName, charName, '../assets/characters/' + charName.lower() +'Token.png', '../assets/characters/' + charName.lower() + '.png')     
-            # tchar = MagicUnit("The " + charName, charName, 0, 0, [20,20,20,20,20,20,20,20], [4,0,0,0,0,0,0,0], '../assets/characters/' + charName +'Token.png', '../assets/characters/' + charName + '.png')
-            '''if tchar.token.get_width() == tchar.token.get_height():
-                aw = (min(85,tchar.token.get_width())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
-                ah = (min(85,tchar.token.get_height())/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
-            else:
-                aw = (tchar.token.get_width()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_WIDTH
-                ah = (tchar.token.get_height()/UnitGenerator.tokenSize)*self.ADJUSTED_TILE_HEIGHT
-            tchar.token = pygame.transform.scale(tchar.token, (aw,ah))'''
+            tchar = UnitGenerator.create_unit('The ' + charName, charName, '../assets/characters/' + charName.lower() +'Token.png', '../assets/characters/' + charName.lower() + '.png')
             self.units.append(tchar)
             
     def new_game(self):
@@ -226,9 +219,14 @@ class Game:
         menuSelected = 1
         options = 1
         self.combat_manager.update_cost_map(self.myTiles.tiles, self.spriteMap)
+        
+        animating = False
+        damaging = False
+        waiting = 0
+        
+        attacker = -1
+        defender = -1
         while self.running:
-            #Render_Text(str(int(clock.get_fps())), (255,0,0), (0,0))
-            #print("{} FPS".format(int(clock.get_fps())))
             clicked = False
             # Process the next enemy's turn. Double check there's not an issue after
             if self.combat_manager.current_turn() == CombatManager.ENEMY_TURN and not cenemyI < self.combat_manager.enemies.__len__():
@@ -244,8 +242,105 @@ class Game:
                     self.combat_manager.next_turn(self.myTiles.tiles, self.spriteMap)
                     self.cursor.x = self.character.x * self.ADJUSTED_TILE_WIDTH
                     self.cursor.y = self.character.y * self.ADJUSTED_TILE_HEIGHT
-                currentEnemy = self.combat_manager.enemies[cenemyI]
+                if cenemyI < self.combat_manager.enemies.__len__():
+                    currentEnemy = self.combat_manager.enemies[cenemyI]
+                else:
+                    break
             
+            if waiting > 0:
+                waiting -= self.clockSpeed/10
+                if waiting <= 0:
+                    animating = False
+                    waiting = 0
+            
+            # tick damage
+            if damaging:
+                if defender.undealt_damage > 0 or attacker.undealt_damage > 0:
+                    pass
+                else:
+                    damaging = False
+                    
+                if not defender == -1 and defender.undealt_damage > 0:
+                    if defender.damage_take_delay <= 0:
+                        defender.damage_take_delay = self.clockSpeed
+                        defender.damage_tick()
+                        if defender.undealt_damage == 0:
+                            if len(defender.attack_set) > 0:
+                                dam = defender.attack_set[0]
+                                attacker.take_damage(dam)
+                                defender.attack_set.remove(dam)
+                                damaging = False
+                        if defender.dead:
+                            damaging = False
+                            waiting = True
+                            attacker.undealt_damage = 0
+                            defender.undealt_damage = 0
+                            if defender in self.combat_manager.enemies:
+                                self.spriteMap[defender.x][defender.y] = 'n'
+                                attacker.add_exp(defender.level,1)
+                                self.combat_manager.enemies.remove(defender)
+                                if self.combat_manager.enemies.__len__() <= 0:
+                                    # You win
+                                    self.running = False
+                            elif defender in self.combat_manager.characters:
+                                self.spriteMap[defender.x][defender.y] = 'n'
+                                self.combat_manager.characters.remove(defender)
+                                if self.character == defender and self.combat_manager.characters.__len__() > 0:
+                                    self.character = self.combat_manager.characters[0]
+                                elif self.character == defender:
+                                    # Game over
+                                    self.running = False
+                        elif defender.undealt_damage <= 0 and defender in self.combat_manager.enemies:
+                            attacker.add_exp(defender.level,0)
+                    else:
+                        defender.damage_take_delay -= self.clockSpeed/4
+                elif not defender == -1 and (defender.undealt_damage == -1 or defender.undealt_damage == -2):
+                    if len(defender.attack_set) > 0:
+                        dam = defender.attack_set[0]
+                        attacker.take_damage(dam)
+                        defender.attack_set.remove(dam)
+                        damaging = False
+                elif not attacker == -1 and attacker.undealt_damage > 0:
+                    if attacker.damage_take_delay <= 0:
+                        attacker.damage_take_delay = self.clockSpeed
+                        attacker.damage_tick()
+                        if attacker.undealt_damage == 0:
+                            if len(attacker.attack_set) > 0:
+                                dam = attacker.attack_set[0]
+                                defender.take_damage(dam)
+                                attacker.attack_set.remove(dam)
+                                damaging = False
+                        if attacker.dead:
+                            damaging = False
+                            waiting = True
+                            attacker.undealt_damage = 0
+                            defender.undealt_damage = 0
+                            if attacker in self.combat_manager.characters:
+                                self.spriteMap[attacker.x][attacker.y] = 'n'
+                                self.combat_manager.characters.remove(attacker)
+                                if self.character == attacker and self.combat_manager.characters.__len__() > 0:
+                                    self.character = self.combat_manager.characters[0]
+                                elif self.character == attacker:
+                                    # Game over
+                                    self.running = False
+                            elif attacker in self.combat_manager.enemies:
+                                self.spriteMap[attacker.x][attacker.y] = 'n'
+                                defender.add_exp(attacker.level,1)
+                                self.combat_manager.enemies.remove(attacker)
+                                if self.combat_manager.enemies.__len__() <= 0:
+                                    # You win
+                                    self.running = False
+                        elif attacker.undealt_damage <= 0 and attacker in self.combat_manager.enemies:
+                            defender.add_exp(defender.level,0)
+                    else:
+                        attacker.damage_take_delay -= self.clockSpeed/4
+                elif not defender == -1 and (defender.undealt_damage == -1 or defender.undealt_damage == -2):
+                    if len(attacker.attack_set) > 0:
+                        dam = attacker.attack_set[0]
+                        defender.take_damage(dam)
+                        attacker.attack_set.remove(dam)
+                        damaging = False
+                                
             # Redraw map
             self.window.fill((255, 255, 255))
             self.draw_map(currentTiles, self.myTiles)
@@ -264,7 +359,8 @@ class Game:
                 if event.type == QUIT:
                     pygame.quit()
                     sys.exit(0)
-                if self.combat_manager.current_turn() == CombatManager.PLAYER_TURN:
+                
+                if self.combat_manager.current_turn() == CombatManager.PLAYER_TURN and not animating:
                     if event.type == KEYDOWN:
                         #if event.key == K_ESCAPE:
                             #self.running = False
@@ -286,34 +382,29 @@ class Game:
                                 if not self.character.acted or not self.character.moved:
                                     menu = True
                             elif self.character.attacking == True:
+                                index = 0
                                 for target in self.combat_manager.enemies:
                                     if target.x == cx and target.y == cy and not target.name == self.character.name:
-                                        CombatManager.fight(self.character,target) 
-                                        menuSelected = 1
-                                        self.character.attacking = False
-                                        self.character.acted = True
-                                        self.character.moved = True
-                                        self.character.originalX = -1
-                                        self.character.originalY = -1
-                                        # Display exp results and small animation for attacking
-                                        if target.dead:
-                                            self.spriteMap[target.x][target.y] = 'n'
-                                            self.character.add_exp(target.level,1)
-                                            self.combat_manager.enemies.remove(target)
-                                            if self.combat_manager.enemies.__len__() <= 0:
-                                                # You win
-                                                self.running = False
-                                        else:
-                                            self.character.add_exp(target.level,0)
-                                        if self.character.dead:
-                                            self.spriteMap[self.character.x][self.character.y] = 'n'
-                                            self.combat_manager.characters.remove(self.character)
-                                            if self.combat_manager.characters.__len__() > 0:
-                                                self.character = self.combat_manager.characters[0]
-                                            else:
-                                                # Game over
-                                                self.running = False
+                                        attacker = self.character
+                                        defender = target
+                                        aset, dset = CombatManager.fight(attacker,defender) 
+                                        if len(aset) > 0:
+                                            dam = aset[0]
+                                            defender.take_damage(dam)
+                                            aset.remove(dam)
+                                            attacker.attack_set = aset
+                                            defender.attack_set = dset
+                                            animating = True
+                                            menuSelected = 1
+                                            attacker.anim_target = [target.x,target.y]
+                                            attacker.attack_animating = True
+                                        attacker.attacking = False
+                                        attacker.acted = True
+                                        attacker.moved = True
+                                        attacker.originalX = -1
+                                        attacker.originalY = -1
                                         break
+                                    index += 1
                             elif menu == False:
                                 menu = True
                             else:
@@ -372,7 +463,7 @@ class Game:
             cy = int(self.cursor.y/self.ADJUSTED_TILE_HEIGHT)
                                 
             # Enemy turn processing
-            if self.combat_manager.current_turn() == CombatManager.ENEMY_TURN:
+            if self.combat_manager.current_turn() == CombatManager.ENEMY_TURN and not animating:
                 # If the enemy has been given move orders and is processing them, move to the next square
                 if not currentEnemy.moved and currentEnemy.moving:
                     if currentEnemy.unresolved_move.__len__() == 1 and (self.spriteMap[currentEnemy.next_square[0]][currentEnemy.next_square[1]] == 'c' or self.spriteMap[currentEnemy.next_square[0]][currentEnemy.next_square[1]] == 'e'):
@@ -396,12 +487,26 @@ class Game:
                     target = -1
                     if ti < self.combat_manager.characters.__len__():
                         target = self.combat_manager.characters[ti]
-                        if currentEnemy.can_attack_stationary(target.x,target.y):
-                            CombatManager.fight(currentEnemy,target) 
+                        currentEnemy.move_map = astar_map(self.combat_manager.map, (currentEnemy.x,currentEnemy.y), currentEnemy.mov*2, allied = True, allow_diagonal_movement = False)
+                        if currentEnemy.can_attack(target.x,target.y):
+                            #CombatManager.fight(currentEnemy,target) 
+                            attacker = currentEnemy
+                            defender = target
+                            aset, dset = CombatManager.fight(attacker,defender) 
+                            if len(aset) > 0:
+                                dam = aset[0]
+                                if not dam == -2:
+                                    defender.take_damage(dam)
+                                    aset.remove(dam)
+                                    attacker.attack_set = aset
+                                    defender.attack_set = dset
+                                    attacker.anim_target = [target.x,target.y]
+                                    attacker.attack_animating = True
+                                    animating = True
                     currentEnemy.attacking = True
                     currentEnemy.acted = True
                     currentEnemy.moved = True
-                    if target in self.combat_manager.characters:
+                    '''if target in self.combat_manager.characters:
                         if target.dead:
                             self.spriteMap[target.x][target.y] = 'n'
                             self.combat_manager.characters.remove(target)
@@ -423,7 +528,7 @@ class Game:
                             target.add_exp(target.level,0)
                         else:
                             # Survied an attack, but couldn't attack back. Heavily reduced exp
-                            target.add_exp(0,0)
+                            target.add_exp(0,0)'''
                 elif currentEnemy.moved or currentEnemy.acted:
                     # If the unit has already attacked or moved, move to the next enemy in the list
                     currentEnemy.moved = True
@@ -453,8 +558,6 @@ class Game:
                         self.spriteMap[currentEnemy.x][currentEnemy.y] = 'n'
                         currentEnemy.resolve_move()
                         self.spriteMap[currentEnemy.x][currentEnemy.y] = 'e'
-                        #currentEnemy.move(currentEnemy.x,currentEnemy.y)
-                        #CombatManager.fight(char,target) 
                     elif set[0] == CombatManager.ACTION:
                         print(set[1])
                         currentEnemy.unresolved_attack = set[1]
@@ -462,15 +565,27 @@ class Game:
                     else:
                         currentEnemy.acted = True
                         currentEnemy.moved = True
-                            
-                #self.combat_manager.next_turn()
                 
                 
             # Display all characters
             anyAction = False
             for char in self.combat_manager.characters:
-                charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH)
-                charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT)
+                if char.attack_animating and not damaging:
+                    animating, damaging = char.attack_animation_adjust(round(self.ADJUSTED_TILE_WIDTH/2),round(self.ADJUSTED_TILE_HEIGHT/2))
+                    if damaging == False and animating == False and (attacker.undealt_damage > 0 or defender.undealt_damage > 0):
+                        if defender.undealt_damage > 0:
+                            attacker.anim_target = [defender.x,defender.y]
+                            attacker.attack_animating = True
+                            animating = True
+                        elif attacker.undealt_damage > 0:
+                            defender.anim_target = [attacker.x,attacker.y]
+                            defender.attack_animating = True
+                            animating = True
+                    if animating == False:
+                        animating = True
+                        waiting = self.clockSpeed*5
+                charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH) + char.attacking_anim[0]
+                charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT) + char.attacking_anim[1]
                 if not char.acted or not char.moved:
                     anyAction = True
                 if char.moved and char.acted and not char.dead:
@@ -479,8 +594,22 @@ class Game:
                     self.window.blit(char.token,(charX, charY))  
                     
             for char in self.combat_manager.enemies:
-                charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH)
-                charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT)
+                if char.attack_animating and not damaging:
+                    animating, damaging = char.attack_animation_adjust(round(self.ADJUSTED_TILE_WIDTH/2),round(self.ADJUSTED_TILE_HEIGHT/2))
+                    if animating == False and (attacker.undealt_damage > 0 or defender.undealt_damage > 0):
+                        if attacker.undealt_damage > 0:
+                            attacker.anim_target = [defender.x,defender.y]
+                            attacker.attack_animating = True
+                            animating = True
+                        elif defender.undealt_damage > 0:
+                            defender.anim_target = [attacker.x,attacker.y]
+                            defender.attack_animating = True
+                            animating = True
+                    if animating == False:
+                        animating = True
+                        waiting = self.clockSpeed*5
+                charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH) + char.attacking_anim[0]
+                charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT) + char.attacking_anim[1]
                 if char.moved and char.acted and not char.dead:
                     self.window.blit(char.gray_token,(charX, charY)) 
                 elif not char.dead:
@@ -490,8 +619,8 @@ class Game:
             for char in self.combat_manager.characters:
                 if char.token.get_height() <= self.ADJUSTED_TILE_WIDTH and char.token.get_width() <= self.ADJUSTED_TILE_WIDTH:
                     continue
-                charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH)
-                charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT)
+                charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH) + char.attacking_anim[0]
+                charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT) + char.attacking_anim[1]
                 if char.moved and char.acted and not char.dead:
                     ttoken = char.gray_token.copy()
                     # Create subsurface for normal area of the tile, then make it transparent
@@ -508,8 +637,8 @@ class Game:
             for char in self.combat_manager.enemies:
                 if char.token.get_height() <= self.ADJUSTED_TILE_WIDTH and char.token.get_width() <= self.ADJUSTED_TILE_WIDTH:
                     continue
-                charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH)
-                charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT)
+                charX = char.x*self.ADJUSTED_TILE_WIDTH-(char.token.get_width()-self.ADJUSTED_TILE_WIDTH) + char.attacking_anim[0]
+                charY = char.y*self.ADJUSTED_TILE_HEIGHT-(char.token.get_height()-self.ADJUSTED_TILE_HEIGHT) + char.attacking_anim[1]
                 if char.moved and char.acted and not char.dead:
                     ttoken = char.gray_token.copy()
                     # Create subsurface for normal area of the tile, then make it transparent
@@ -527,8 +656,10 @@ class Game:
                 self.combat_manager.next_turn(self.myTiles.tiles, self.spriteMap)
                 
             # Draw menu if action button is clicked. pass in object clicked on to figure out which options show up
-            if not self.combat_manager.current_turn() == CombatManager.PLAYER_TURN:
+            if not self.combat_manager.current_turn() == CombatManager.PLAYER_TURN or animating:
                 flip = self.reticle_idle(flip)
+            elif self.character.attacking == True:
+                flip = self.attacking_cursor(flip)
             elif menu == False:
                 flip, currentEnemyI, currentCharI = self.cursor_movement(flip,currentEnemyI, currentCharI)
             else:
@@ -590,21 +721,193 @@ class Game:
                     x += 1
                 
             
-            if (self.spriteMap[cx][cy] == 'c' or self.spriteMap[cx][cy] == 'e') and not self.character.moving:
-                if self.spriteMap[cx][cy] == 'c':
-                    for char in self.combat_manager.characters:
-                        if char.x == cx and char.y == cy and not char.dead:
-                            self.draw_stats(char) 
-                            break
-                elif self.spriteMap[cx][cy] == 'e':
-                    for char in self.combat_manager.enemies:
-                        if char.x == cx and char.y == cy and not char.dead:
-                            self.draw_stats(char,1) 
-                            break
+            if (self.spriteMap[cx][cy] == 'c' or self.spriteMap[cx][cy] == 'e') and not self.character.moving or animating:
+                if not self.character.attacking and not animating:
+                    if self.spriteMap[cx][cy] == 'c':
+                        for char in self.combat_manager.characters:
+                            if char.x == cx and char.y == cy and not char.dead:
+                                self.draw_stats(char) 
+                                break
+                    elif self.spriteMap[cx][cy] == 'e':
+                        for char in self.combat_manager.enemies:
+                            if char.x == cx and char.y == cy and not char.dead:
+                                self.draw_stats(char,1) 
+                                break
+                else:
+                    if self.spriteMap[cx][cy] == 'e' or animating:
+                        for char in self.combat_manager.enemies:
+                            if char.x == cx and char.y == cy and not char.dead:
+                                #self.draw_stats(char,1) 
+                                self.draw_battle_preview(char)
+                                # Draw preview
+                                break
             
             # Update display
             pygame.display.flip()
             clock.tick(self.clockSpeed)
+    
+    def draw_battle_preview(self, target):
+        w, h = pygame.display.get_surface().get_size()
+        border_length = 2
+        sidebar_options = 4
+        # Name, damage per hit x hit count, hit rate, crit rate
+        
+        border_color = (0, 0, 0)
+        attacker_color = (67, 160, 76)
+        defender_color = (190, 77, 86)
+        
+        cell_w = h/6
+        cell_h = h/12
+        
+        hpbar_y = h-cell_h
+        sidebar_y = h-(sidebar_options+1)*cell_h
+        
+        if self.character.y*self.ADJUSTED_TILE_WIDTH >= h/2:
+            hpbar_y = 0
+            sidebar_y = h/12
+        
+        # Place background for the borders first    
+        attacking_hpbar = pygame.Surface((w/2,h/12))
+        attacking_hpbar.fill(border_color)
+        attacking_hpbar.set_alpha(200)
+        self.window.blit(attacking_hpbar,(0, hpbar_y)) 
+        
+        defending_hpbar = pygame.Surface((w/2,h/12))
+        defending_hpbar.fill(border_color)
+        defending_hpbar.set_alpha(200)
+        self.window.blit(defending_hpbar,(w/2, hpbar_y)) 
+        
+        attacking_sidebar = pygame.Surface((w/6,sidebar_options*h/12))
+        attacking_sidebar.fill(border_color)
+        attacking_sidebar.set_alpha(200)
+        self.window.blit(attacking_sidebar,(0, sidebar_y)) 
+        
+        defending_sidebar = pygame.Surface((w/6,sidebar_options*h/12))
+        defending_sidebar.fill(border_color)
+        defending_sidebar.set_alpha(200)
+        self.window.blit(defending_sidebar,(w-w/6, sidebar_y)) 
+        
+        attacking_hp_textbox = pygame.Surface((cell_w-border_length*2,cell_h-border_length*2))
+        attacking_hp_textbox.fill(attacker_color)
+        attacking_hp_textbox.set_alpha(200)
+        self.window.blit(attacking_hp_textbox,(border_length, hpbar_y+border_length)) 
+        
+        defending_hp_textbox = pygame.Surface((cell_w-border_length*2,cell_h-border_length*2))
+        defending_hp_textbox.fill(defender_color)
+        defending_hp_textbox.set_alpha(200)
+        self.window.blit(defending_hp_textbox,(w-cell_w+border_length, hpbar_y+border_length)) 
+        
+        attacking_hp_backbox = pygame.Surface((w/2-cell_w-border_length*2,cell_h-border_length*2))
+        attacking_hp_backbox.fill(attacker_color)
+        attacking_hp_backbox.set_alpha(150)
+        self.window.blit(attacking_hp_backbox,(cell_w+border_length, hpbar_y+border_length)) 
+        
+        defending_hp_backbox = pygame.Surface((w/2-cell_w-border_length*2,cell_h-border_length*2))
+        defending_hp_backbox.fill(defender_color)
+        defending_hp_backbox.set_alpha(150)
+        self.window.blit(defending_hp_backbox,(w/2+border_length, hpbar_y+border_length)) 
+        
+        hp_blit_w = math.floor((w/2-cell_w)/60)-border_length
+        hp_blit_h = (cell_h/2)-border_length
+        
+        hp_blit = pygame.Surface((hp_blit_w,hp_blit_h))
+        hp_blit.fill((220,220,180))
+        hp_blit.set_alpha(220)
+        
+        hp_dead_blit = pygame.Surface((hp_blit_w,hp_blit_h))
+        hp_dead_blit.fill((130,130,130))
+        hp_dead_blit.set_alpha(220)
+        
+        for i in range(1,self.character.stats["HP"]):
+            if i <= 60:
+                if i <= self.character.currentHP:
+                    self.window.blit(hp_blit,(cell_w+i*(hp_blit_w+border_length),hpbar_y+border_length))
+                else:
+                    self.window.blit(hp_dead_blit,(cell_w+i*(hp_blit_w+border_length),hpbar_y+border_length))
+            else:
+                if i <= self.character.currentHP or True:
+                    self.window.blit(hp_blit,(cell_w+(i-60)*(hp_blit_w+border_length),hpbar_y+border_length+hp_blit_h+border_length))
+                else:
+                    self.window.blit(hp_dead_blit,(cell_w+(i-60)*(hp_blit_w+border_length),hpbar_y+border_length+hp_blit_h+border_length))
+                    
+        for i in range(1,target.stats["HP"]):
+            if i <= 60:
+                if i <= target.currentHP:
+                    self.window.blit(hp_blit,(w-cell_w-border_length-i*(hp_blit_w+border_length),hpbar_y+border_length))
+                else:
+                    self.window.blit(hp_dead_blit,(w-cell_w-border_length-i*(hp_blit_w+border_length),hpbar_y+border_length))
+            else:
+                if i <= target.currentHP or True:
+                    self.window.blit(hp_blit,(w-cell_w-border_length-(i-60)*(hp_blit_w+border_length),hpbar_y+border_length+hp_blit_h+border_length))
+                else:
+                    self.window.blit(hp_dead_blit,(w-cell_w-border_length-(i-60)*(hp_blit_w+border_length),hpbar_y+border_length+hp_blit_h+border_length))
+                
+        # Attacker boxes
+        attacking_name_textbox = pygame.Surface((cell_w-border_length*2,cell_h-border_length*2))
+        attacking_name_textbox.fill((220,235,220))
+        attacking_name_textbox.set_alpha(200)
+        self.window.blit(attacking_name_textbox,(border_length, sidebar_y+border_length)) 
+        
+        attacking_dam_textbox = pygame.Surface((cell_w-border_length*2,cell_h-border_length*2))
+        attacking_dam_textbox.fill(attacker_color)
+        attacking_dam_textbox.set_alpha(200)
+        self.window.blit(attacking_dam_textbox,(border_length, sidebar_y+border_length+cell_h)) 
+        
+        attacking_hitr_textbox = pygame.Surface((cell_w-border_length*2,cell_h-border_length*2))
+        attacking_hitr_textbox.fill(attacker_color)
+        attacking_hitr_textbox.set_alpha(200)
+        self.window.blit(attacking_hitr_textbox,(border_length, sidebar_y+border_length+cell_h*2)) 
+        
+        attacking_critr_textbox = pygame.Surface((cell_w-border_length*2,cell_h-border_length*2))
+        attacking_critr_textbox.fill(attacker_color)
+        attacking_critr_textbox.set_alpha(200)
+        self.window.blit(attacking_critr_textbox,(border_length, sidebar_y+border_length+cell_h*3)) 
+        
+        # Defender boxes
+        defending_name_textbox = pygame.Surface((cell_w-border_length*2,cell_h-border_length*2))
+        defending_name_textbox.fill((235,220,220))
+        defending_name_textbox.set_alpha(200)
+        self.window.blit(defending_name_textbox,(w-cell_w+border_length, sidebar_y+border_length)) 
+        
+        defending_dam_textbox = pygame.Surface((cell_w-border_length*2,cell_h-border_length*2))
+        defending_dam_textbox.fill(defender_color)
+        defending_dam_textbox.set_alpha(200)
+        self.window.blit(defending_dam_textbox,(w-cell_w+border_length, sidebar_y+border_length+cell_h)) 
+        
+        defending_hitr_textbox = pygame.Surface((cell_w-border_length*2,cell_h-border_length*2))
+        defending_hitr_textbox.fill(defender_color)
+        defending_hitr_textbox.set_alpha(200)
+        self.window.blit(defending_hitr_textbox,(w-cell_w+border_length, sidebar_y+border_length+cell_h*2)) 
+        
+        defending_critr_textbox = pygame.Surface((cell_w-border_length*2,cell_h-border_length*2))
+        defending_critr_textbox.fill(defender_color)
+        defending_critr_textbox.set_alpha(200)
+        self.window.blit(defending_critr_textbox,(w-cell_w+border_length, sidebar_y+border_length+cell_h*3)) 
+        
+        
+        font = pygame.font.Font(pygame.font.match_font('calibri',bold=True), 25)
+        adam, ahits, acrit, ahit = CombatManager.calc_preview(target, self.character)
+        ddam, dhits, dcrit, dhit = CombatManager.calc_preview(self.character, target)
+        
+        self.draw_text("HP {}/{}".format(self.character.currentHP,self.character.stats["HP"]), font, (0, 0, 0), cell_w/2, hpbar_y+border_length+cell_h/2)
+        self.draw_text("{}".format(self.character.name), font, (0, 0, 0), cell_w/2, sidebar_y+border_length+cell_h/2)
+        if not ahits == "-" and ahits > 1:
+            self.draw_text("MT {}x{}".format(adam, ahits), font, (0, 0, 0), cell_w/2, sidebar_y+border_length+cell_h/2+cell_h)
+        else:
+            self.draw_text("MT {}".format(adam), font, (0, 0, 0), cell_w/2, sidebar_y+border_length+cell_h/2+cell_h)
+        self.draw_text("Hit {}%".format(ahit), font, (0, 0, 0), cell_w/2, sidebar_y+border_length+cell_h/2+cell_h*2)
+        self.draw_text("Crit {}%".format(acrit), font, (0, 0, 0), cell_w/2, sidebar_y+border_length+cell_h/2+cell_h*3)
+        
+        
+        self.draw_text("HP {}/{}".format(target.currentHP,target.stats["HP"]), font, (0, 0, 0), w-cell_w+cell_w/2, hpbar_y+border_length+cell_h/2)
+        self.draw_text("{}".format(target.name), font, (0, 0, 0), w-cell_w+cell_w/2, sidebar_y+border_length+cell_h/2)
+        if not dhits == "-" and dhits > 1:
+            self.draw_text("MT {}x{}".format(ddam, dhits), font, (0, 0, 0), w-cell_w+cell_w/2, sidebar_y+border_length+cell_h/2+cell_h)
+        else:
+            self.draw_text("MT {}".format(ddam), font, (0, 0, 0), w-cell_w+cell_w/2, sidebar_y+border_length+cell_h/2+cell_h)
+        self.draw_text("Hit {}%".format(dhit), font, (0, 0, 0), w-cell_w+cell_w/2, sidebar_y+border_length+cell_h/2+cell_h*2)
+        self.draw_text("Crit {}%".format(dcrit), font, (0, 0, 0), w-cell_w+cell_w/2, sidebar_y+border_length+cell_h/2+cell_h*3)
+        
             
     def draw_stats(self, character, enemy=0):
         optionsW = 4
@@ -851,122 +1154,199 @@ class Game:
         self.cursor.set_alpha()
         return flip
     
-    def cursor_movement(self, flip, currentEnemyI, currentCharI):#Show FPS
-            moveDelay = 15/self.clockSpeed
-            keys = pygame.key.get_pressed()
-            w, h = pygame.display.get_surface().get_size()
-            x1 = 0
-            y1 = 0
-            
-            # While a key is being pressed, the delay between moving the cursor reduces. It's reset when no keys are being pressed
-            if not any((keys[Options.LEFT], keys[Options.RIGHT], keys[Options.UP], keys[Options.DOWN], keys[Options.REWIND], keys[Options.NEXT])):
-                self.cursor.move_delay_reduce = 0
-            elif self.character.moving:
-                self.cursor.move_delay_reduce = moveDelay/2
-                
-                
-                
-            adjustX = int(self.cursor.x/self.ADJUSTED_TILE_WIDTH)
-            adjustY = int(self.cursor.y/self.ADJUSTED_TILE_HEIGHT)
-            if(self.cursor.move_delay <= 0 and any((keys[Options.LEFT], keys[Options.RIGHT], keys[Options.UP], keys[Options.DOWN], keys[Options.REWIND], keys[Options.NEXT]))):
-                if keys[Options.NEXT]:
-                    if self.spriteMap[int(self.cursor.x/self.ADJUSTED_TILE_WIDTH)][int(self.cursor.y/self.ADJUSTED_TILE_HEIGHT)] == 'e':
-                        self.cursor.x = self.combat_manager.enemies[currentEnemyI].x * self.ADJUSTED_TILE_WIDTH
-                        self.cursor.y = self.combat_manager.enemies[currentEnemyI].y * self.ADJUSTED_TILE_HEIGHT
-                        currentEnemyI += 1
-                        if currentEnemyI > self.combat_manager.enemies.__len__()-1:
-                            currentEnemyI = 0
-                    else:
-                        self.cursor.x = self.combat_manager.characters[currentCharI].x * self.ADJUSTED_TILE_WIDTH
-                        self.cursor.y = self.combat_manager.characters[currentCharI].y * self.ADJUSTED_TILE_HEIGHT
-                        currentCharI += 1
-                        if currentCharI > self.combat_manager.characters.__len__()-1:
-                            currentCharI = 0
-                    self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
-                elif keys[Options.REWIND]:
-                    if self.spriteMap[int(self.cursor.x/self.ADJUSTED_TILE_WIDTH)][int(self.cursor.y/self.ADJUSTED_TILE_HEIGHT)] == 'e':
-                        self.cursor.x = self.combat_manager.enemies[currentEnemyI].x * self.ADJUSTED_TILE_WIDTH
-                        self.cursor.y = self.combat_manager.enemies[currentEnemyI].y * self.ADJUSTED_TILE_HEIGHT
-                        currentEnemyI -= 1
-                        if currentEnemyI < 0:
-                            currentEnemyI = self.combat_manager.enemies.__len__() - 1
-                    else:
-                        self.cursor.x = self.combat_manager.characters[currentCharI].x * self.ADJUSTED_TILE_WIDTH
-                        self.cursor.y = self.combat_manager.characters[currentCharI].y * self.ADJUSTED_TILE_HEIGHT
-                        currentCharI -= 1
-                        if currentCharI < 0:
-                            currentCharI = self.combat_manager.characters.__len__() - 1
-                    self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
-                elif keys[Options.LEFT] and (self.cursor.x-self.ADJUSTED_TILE_WIDTH) >= 0:
+    def attacking_cursor(self, flip):
+        moveDelay = 15/self.clockSpeed
+        keys = pygame.key.get_pressed()
+        w, h = pygame.display.get_surface().get_size()
+        x1 = 0
+        y1 = 0
+        
+        adjustX = int(self.cursor.x/self.ADJUSTED_TILE_WIDTH)
+        adjustY = int(self.cursor.y/self.ADJUSTED_TILE_HEIGHT)
+        if(self.cursor.move_delay <= 0 and any((keys[Options.LEFT], keys[Options.RIGHT], keys[Options.UP], keys[Options.DOWN]))):
+            if keys[Options.LEFT] and (self.cursor.x-self.ADJUSTED_TILE_WIDTH) >= 0:
+                if self.character.can_attack_stationary(adjustX-1,adjustY):
                     x1 -= 1
-                    if self.character.moving:
-                        if self.character.can_move(adjustX-1, adjustY):
-                            # Check if the tile is a blocked tile, and allow the cursor to move there if it's an enemy and the character can move there
-                            if self.myTiles.tiles[int(adjustX-1)][int(adjustY)].block == 1:
-                                if not self.spriteMap[adjustX-1][adjustY] == 'e' and self.character.can_move(adjustX-1,adjustY):
-                                    x1 += 1
-                            # Check if character can move to where the cursor is, and check that that place is neither a character or an enemy
-                            elif self.character.can_move(adjustX-1, adjustY) and not self.spriteMap[adjustX-1][adjustY] == 'c' and not self.spriteMap[adjustX-1][adjustY] == 'e':
-                                self.character.move(int(adjustX-1),int(adjustY))
-                            elif not self.spriteMap[adjustX-1][adjustY] == 'c' and not self.spriteMap[adjustX-1][adjustY] == 'e':
-                                x1 += 1
-                        # If the character can't move there, prevent the cursor from moving
-                        else:
-                            x1 += 1    
-                    self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
-                elif keys[Options.RIGHT] and (self.cursor.x+self.ADJUSTED_TILE_WIDTH) < w:
-                    x1 += 1
-                    if self.character.moving:
-                        if self.character.can_move(adjustX+1, adjustY):
-                            if self.myTiles.tiles[int(adjustX+1)][int(adjustY)].block == 1:
-                                if not self.spriteMap[adjustX+1][adjustY] == 'e' and self.character.can_move(adjustX+1,adjustY):
-                                    x1 -= 1
-                            elif self.character.can_move(adjustX+1, adjustY) and not self.spriteMap[adjustX+1][adjustY] == 'c' and not self.spriteMap[adjustX+1][adjustY] == 'e':
-                                self.character.move(int(adjustX+1),int(adjustY))
-                            elif not self.spriteMap[adjustX+1][adjustY] == 'c' and not self.spriteMap[adjustX+1][adjustY] == 'e':
-                                x1 -= 1
-                        else:
-                            x1 -= 1
-                    self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
-                elif keys[Options.UP] and (self.cursor.y-self.ADJUSTED_TILE_HEIGHT) >= 0:
-                    y1 -= 1
-                    if self.character.moving:
-                        if self.character.can_move(adjustX, adjustY-1):
-                            if self.myTiles.tiles[int(adjustX)][int(adjustY-1)].block == 1:
-                                if not self.spriteMap[adjustX][adjustY-1] == 'e' and self.character.can_move(adjustX,adjustY-1):
-                                    y1 += 1
-                            elif self.character.can_move(adjustX, adjustY-1) and not self.spriteMap[adjustX][adjustY-1] == 'c' and not self.spriteMap[adjustX][adjustY-1] == 'e':
-                                self.character.move(int(adjustX),int(adjustY-1))
-                            elif not self.spriteMap[adjustX][adjustY-1] == 'c' and not self.spriteMap[adjustX][adjustY-1] == 'e':
-                                y1 += 1
-                        else:
+                elif adjustY == self.character.y and adjustX-1 == self.character.x and self.character.can_attack_stationary(adjustX-2,adjustY):
+                    x1 -= 2
+                elif not adjustX == self.character.x-2 and self.character.can_attack_stationary(self.character.x-1,self.character.y):
+                    self.cursor.y = self.character.y*self.ADJUSTED_TILE_HEIGHT
+                    self.cursor.x = self.character.x*self.ADJUSTED_TILE_WIDTH
+                    x1 -= 1
+                    if not adjustY == self.character.y+1 and not adjustY == self.character.y-1:
+                        if self.character.can_attack_stationary(self.character.x-1,self.character.y+1) and adjustY > self.character.y:
                             y1 += 1
-                    self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
-                elif keys[Options.DOWN] and (self.cursor.y+self.ADJUSTED_TILE_HEIGHT) < h:
-                    y1 += 1
-                    if self.character.moving:
-                        if self.character.can_move(adjustX, adjustY+1):
-                            if self.myTiles.tiles[int(adjustX)][int(adjustY+1)].block == 1:
-                                if not self.spriteMap[adjustX][adjustY+1] == 'e' and self.character.can_move(adjustX,adjustY+1):
-                                    y1 -= 1
-                            elif self.character.can_move(adjustX, adjustY+1) and not self.spriteMap[adjustX][adjustY+1] == 'c' and not self.spriteMap[adjustX][adjustY+1] == 'e':
-                                self.character.move(int(adjustX),int(adjustY+1))
-                            elif not self.spriteMap[adjustX][adjustY+1] == 'c' and not self.spriteMap[adjustX][adjustY+1] == 'e':
-                                y1 -= 1
-                        else:
+                        elif self.character.can_attack_stationary(self.character.x-1,self.character.y-1) and adjustY < self.character.y:
                             y1 -= 1
-                    self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
-                    
-                if any(keys):
-                    self.cursor.move_delay_reduce += moveDelay/6#*(15/self.clockSpeed)
-                if self.cursor.move_delay_reduce > moveDelay-moveDelay/8:
-                    self.cursor.move_delay_reduce = moveDelay-moveDelay/8
-            else:
-                self.cursor.move_delay -= moveDelay/3*(15/self.clockSpeed)
-                
-            self.cursor.y += y1*self.ADJUSTED_TILE_HEIGHT
-            self.cursor.x += x1*self.ADJUSTED_TILE_WIDTH
+                self.cursor.move_delay = moveDelay
+            elif keys[Options.RIGHT] and (self.cursor.x+self.ADJUSTED_TILE_WIDTH) < w:
+                if self.character.can_attack_stationary(adjustX+1,adjustY):
+                    x1 += 1
+                elif adjustY == self.character.y and adjustX+1 == self.character.x and self.character.can_attack_stationary(adjustX+2,adjustY):
+                    x1 += 2
+                elif not adjustX == self.character.x+2 and self.character.can_attack_stationary(self.character.x+1,self.character.y):
+                    self.cursor.y = self.character.y*self.ADJUSTED_TILE_HEIGHT
+                    self.cursor.x = self.character.x*self.ADJUSTED_TILE_WIDTH
+                    x1 += 1
+                    if not adjustY == self.character.y+1 and not adjustY == self.character.y-1:
+                        if self.character.can_attack_stationary(self.character.x+1,self.character.y+1) and adjustY > self.character.y:
+                            y1 += 1
+                        elif self.character.can_attack_stationary(self.character.x+1,self.character.y-1) and adjustY < self.character.y:
+                            y1 -= 1
+                self.cursor.move_delay = moveDelay
+            elif keys[Options.UP] and (self.cursor.y-self.ADJUSTED_TILE_HEIGHT) >= 0:
+                if self.character.can_attack_stationary(adjustX,adjustY-1):
+                    y1 -= 1
+                elif adjustY-1 == self.character.y and adjustX == self.character.x and self.character.can_attack_stationary(adjustX,adjustY-2):
+                    y1 -= 2
+                elif not adjustY == self.character.y-2 and self.character.can_attack_stationary(self.character.x,self.character.y-1):
+                    self.cursor.y = self.character.y*self.ADJUSTED_TILE_HEIGHT
+                    self.cursor.x = self.character.x*self.ADJUSTED_TILE_WIDTH
+                    y1 -= 1
+                    if not adjustX == self.character.x+1 and not adjustX == self.character.x-1:
+                        if self.character.can_attack_stationary(self.character.x+1,self.character.y-1) and adjustX > self.character.x:
+                            x1 += 1
+                        elif self.character.can_attack_stationary(self.character.x-1,self.character.y-1) and adjustX < self.character.x:
+                            x1 -= 1
+                self.cursor.move_delay = moveDelay
+            elif keys[Options.DOWN] and (self.cursor.y+self.ADJUSTED_TILE_HEIGHT) < h:
+                if self.character.can_attack_stationary(adjustX,adjustY+1):
+                    y1 += 1
+                elif adjustY+1 == self.character.y and adjustX == self.character.x and self.character.can_attack_stationary(adjustX,adjustY+2):
+                    y1 += 2
+                elif not adjustY == self.character.y+2 and self.character.can_attack_stationary(self.character.x,self.character.y+1):
+                    self.cursor.y = self.character.y*self.ADJUSTED_TILE_HEIGHT
+                    self.cursor.x = self.character.x*self.ADJUSTED_TILE_WIDTH
+                    y1 += 1
+                    if not adjustX == self.character.x+1 and not adjustX == self.character.x-1:
+                        if self.character.can_attack_stationary(self.character.x+1,self.character.y+1) and adjustX > self.character.x:
+                            x1 += 1
+                        elif self.character.can_attack_stationary(self.character.x-1,self.character.y+1) and adjustX < self.character.x:
+                            x1 -= 1
+                self.cursor.move_delay = moveDelay
+        else:
+            self.cursor.move_delay -= moveDelay/3*(15/self.clockSpeed)
             
-            # After moving, change alpha of cursor
-            return [self.reticle_idle(flip), currentEnemyI, currentCharI]
+        self.cursor.y += y1*self.ADJUSTED_TILE_HEIGHT
+        self.cursor.x += x1*self.ADJUSTED_TILE_WIDTH
+        return self.reticle_idle(flip)
+    
+    def cursor_movement(self, flip, currentEnemyI, currentCharI):
+        moveDelay = 15/self.clockSpeed
+        keys = pygame.key.get_pressed()
+        w, h = pygame.display.get_surface().get_size()
+        x1 = 0
+        y1 = 0
+        
+        # While a key is being pressed, the delay between moving the cursor reduces. It's reset when no keys are being pressed
+        if not any((keys[Options.LEFT], keys[Options.RIGHT], keys[Options.UP], keys[Options.DOWN], keys[Options.REWIND], keys[Options.NEXT])):
+            self.cursor.move_delay_reduce = 0
+        elif self.character.moving:
+            self.cursor.move_delay_reduce = moveDelay/2
+            
+            
+            
+        adjustX = int(self.cursor.x/self.ADJUSTED_TILE_WIDTH)
+        adjustY = int(self.cursor.y/self.ADJUSTED_TILE_HEIGHT)
+        if(self.cursor.move_delay <= 0 and any((keys[Options.LEFT], keys[Options.RIGHT], keys[Options.UP], keys[Options.DOWN], keys[Options.REWIND], keys[Options.NEXT]))):
+            if keys[Options.NEXT]:
+                if self.spriteMap[int(self.cursor.x/self.ADJUSTED_TILE_WIDTH)][int(self.cursor.y/self.ADJUSTED_TILE_HEIGHT)] == 'e':
+                    self.cursor.x = self.combat_manager.enemies[currentEnemyI].x * self.ADJUSTED_TILE_WIDTH
+                    self.cursor.y = self.combat_manager.enemies[currentEnemyI].y * self.ADJUSTED_TILE_HEIGHT
+                    currentEnemyI += 1
+                    if currentEnemyI > self.combat_manager.enemies.__len__()-1:
+                        currentEnemyI = 0
+                else:
+                    self.cursor.x = self.combat_manager.characters[currentCharI].x * self.ADJUSTED_TILE_WIDTH
+                    self.cursor.y = self.combat_manager.characters[currentCharI].y * self.ADJUSTED_TILE_HEIGHT
+                    currentCharI += 1
+                    if currentCharI > self.combat_manager.characters.__len__()-1:
+                        currentCharI = 0
+                self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
+            elif keys[Options.REWIND]:
+                if self.spriteMap[int(self.cursor.x/self.ADJUSTED_TILE_WIDTH)][int(self.cursor.y/self.ADJUSTED_TILE_HEIGHT)] == 'e':
+                    self.cursor.x = self.combat_manager.enemies[currentEnemyI].x * self.ADJUSTED_TILE_WIDTH
+                    self.cursor.y = self.combat_manager.enemies[currentEnemyI].y * self.ADJUSTED_TILE_HEIGHT
+                    currentEnemyI -= 1
+                    if currentEnemyI < 0:
+                        currentEnemyI = self.combat_manager.enemies.__len__() - 1
+                else:
+                    self.cursor.x = self.combat_manager.characters[currentCharI].x * self.ADJUSTED_TILE_WIDTH
+                    self.cursor.y = self.combat_manager.characters[currentCharI].y * self.ADJUSTED_TILE_HEIGHT
+                    currentCharI -= 1
+                    if currentCharI < 0:
+                        currentCharI = self.combat_manager.characters.__len__() - 1
+                self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
+            elif keys[Options.LEFT] and (self.cursor.x-self.ADJUSTED_TILE_WIDTH) >= 0:
+                x1 -= 1
+                if self.character.moving:
+                    if self.character.can_move(adjustX-1, adjustY):
+                        # Check if the tile is a blocked tile, and allow the cursor to move there if it's an enemy and the character can move there
+                        if self.myTiles.tiles[int(adjustX-1)][int(adjustY)].block == 1:
+                            if not self.spriteMap[adjustX-1][adjustY] == 'e' and self.character.can_move(adjustX-1,adjustY):
+                                x1 += 1
+                        # Check if character can move to where the cursor is, and check that that place is neither a character or an enemy
+                        elif self.character.can_move(adjustX-1, adjustY) and not self.spriteMap[adjustX-1][adjustY] == 'c' and not self.spriteMap[adjustX-1][adjustY] == 'e':
+                            self.character.move(int(adjustX-1),int(adjustY))
+                        elif not self.spriteMap[adjustX-1][adjustY] == 'c' and not self.spriteMap[adjustX-1][adjustY] == 'e':
+                            x1 += 1
+                    # If the character can't move there, prevent the cursor from moving
+                    else:
+                        x1 += 1    
+                self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
+            elif keys[Options.RIGHT] and (self.cursor.x+self.ADJUSTED_TILE_WIDTH) < w:
+                x1 += 1
+                if self.character.moving:
+                    if self.character.can_move(adjustX+1, adjustY):
+                        if self.myTiles.tiles[int(adjustX+1)][int(adjustY)].block == 1:
+                            if not self.spriteMap[adjustX+1][adjustY] == 'e' and self.character.can_move(adjustX+1,adjustY):
+                                x1 -= 1
+                        elif self.character.can_move(adjustX+1, adjustY) and not self.spriteMap[adjustX+1][adjustY] == 'c' and not self.spriteMap[adjustX+1][adjustY] == 'e':
+                            self.character.move(int(adjustX+1),int(adjustY))
+                        elif not self.spriteMap[adjustX+1][adjustY] == 'c' and not self.spriteMap[adjustX+1][adjustY] == 'e':
+                            x1 -= 1
+                    else:
+                        x1 -= 1
+                self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
+            elif keys[Options.UP] and (self.cursor.y-self.ADJUSTED_TILE_HEIGHT) >= 0:
+                y1 -= 1
+                if self.character.moving:
+                    if self.character.can_move(adjustX, adjustY-1):
+                        if self.myTiles.tiles[int(adjustX)][int(adjustY-1)].block == 1:
+                            if not self.spriteMap[adjustX][adjustY-1] == 'e' and self.character.can_move(adjustX,adjustY-1):
+                                y1 += 1
+                        elif self.character.can_move(adjustX, adjustY-1) and not self.spriteMap[adjustX][adjustY-1] == 'c' and not self.spriteMap[adjustX][adjustY-1] == 'e':
+                            self.character.move(int(adjustX),int(adjustY-1))
+                        elif not self.spriteMap[adjustX][adjustY-1] == 'c' and not self.spriteMap[adjustX][adjustY-1] == 'e':
+                            y1 += 1
+                    else:
+                        y1 += 1
+                self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
+            elif keys[Options.DOWN] and (self.cursor.y+self.ADJUSTED_TILE_HEIGHT) < h:
+                y1 += 1
+                if self.character.moving:
+                    if self.character.can_move(adjustX, adjustY+1):
+                        if self.myTiles.tiles[int(adjustX)][int(adjustY+1)].block == 1:
+                            if not self.spriteMap[adjustX][adjustY+1] == 'e' and self.character.can_move(adjustX,adjustY+1):
+                                y1 -= 1
+                        elif self.character.can_move(adjustX, adjustY+1) and not self.spriteMap[adjustX][adjustY+1] == 'c' and not self.spriteMap[adjustX][adjustY+1] == 'e':
+                            self.character.move(int(adjustX),int(adjustY+1))
+                        elif not self.spriteMap[adjustX][adjustY+1] == 'c' and not self.spriteMap[adjustX][adjustY+1] == 'e':
+                            y1 -= 1
+                    else:
+                        y1 -= 1
+                self.cursor.move_delay = moveDelay - self.cursor.move_delay_reduce
+                
+            if any(keys):
+                self.cursor.move_delay_reduce += moveDelay/6
+            if self.cursor.move_delay_reduce > moveDelay-moveDelay/8:
+                self.cursor.move_delay_reduce = moveDelay-moveDelay/8
+        else:
+            self.cursor.move_delay -= moveDelay/3*(15/self.clockSpeed)
+            
+        self.cursor.y += y1*self.ADJUSTED_TILE_HEIGHT
+        self.cursor.x += x1*self.ADJUSTED_TILE_WIDTH
+        
+        # After moving, change alpha of cursor
+        return [self.reticle_idle(flip), currentEnemyI, currentCharI]
             

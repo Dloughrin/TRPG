@@ -4,6 +4,7 @@ Programmer: Dustin Loughrin
 Email: dloughrin@cnm.edu
 Purpose: Holds information for units on the game map
 '''
+
 import random
 import pygame
 from Item import Weapon, WeaponTraits
@@ -46,6 +47,15 @@ class Unit():
         self.unresolved_move = []
         self.next_square = []
         
+        self.attack_set = []
+        self.attack_animating = False
+        self.attack_animating_val = 1
+        self.attacking_anim = [0,0]
+        self.anim_target = []
+        
+        self.undealt_damage = 0
+        self.damage_take_delay = 0
+        
         self.exp = 0
         self.level = 1
         self.mov = 3
@@ -60,6 +70,27 @@ class Unit():
                 "res"    : 0,
             }
         self.currentHP = self.stats["HP"]
+    
+    def attack_animation_adjust(self, x_goal, y_goal, speed=8):
+        if self.anim_target[0] > self.x:
+            self.attacking_anim[0] += self.attack_animating_val*round(x_goal/speed)
+        elif self.anim_target[0] < self.x:
+            self.attacking_anim[0] -= self.attack_animating_val*round(x_goal/speed)
+            
+        if self.anim_target[1] > self.y:
+            self.attacking_anim[1] += self.attack_animating_val*round(y_goal/speed)
+        elif self.anim_target[1] < self.y:
+            self.attacking_anim[1] -= self.attack_animating_val*round(y_goal/speed)
+            
+        if self.attack_animating_val == 1 and (abs(self.attacking_anim[0]) >= x_goal or abs(self.attacking_anim[1]) >= y_goal):
+            self.attack_animating_val = -1
+            return True, True
+        elif self.attack_animating_val == -1 and (self.attacking_anim[0] < 0 or self.attacking_anim[1] < 0):
+            self.attacking_anim = [0,0]
+            self.attack_animating_val = 1
+            self.attack_animating = False
+            return False, False
+        return True, False
         
     def attack(self, damage, defense):
         dam = damage - defense
@@ -73,7 +104,6 @@ class Unit():
         
     def resolve_move(self):
         if not self.next_square == []:
-            print(self.next_square)
             self.x = self.next_square[0]
             self.y = self.next_square[1]
             self.__next_move()
@@ -99,24 +129,12 @@ class Unit():
             return True
         else:
             return False
-        #dx = abs(self.originalX - newX)
-        #dy = abs(self.originalY - newY)
-        #if dx+dy > self.mov:
-        #    return False
-        #else:
-        #    return True
         
     def can_move_move(self, newX, newY):
         if self.move_map[newX][newY] != -1 and self.move_map[newX][newY] < self.mov*2:
             return True
         else:
             return False
-        '''dx = abs(self.originalX - newX)
-        dy = abs(self.originalY - newY)
-        if dx+dy > self.mov+self.mov:
-            return False
-        else:
-            return True'''
         
     def can_attack(self, newX, newY):
         if self.x == newX and self.y == newY:
@@ -125,12 +143,6 @@ class Unit():
             return True
         else:
             return False
-        '''dx = abs(self.originalX - newX)
-        dy = abs(self.originalY - newY)
-        if (dx+dy) > (self.mov+self.weapon.range):
-            return False
-        else:
-            return True'''
             
     def can_attack_stationary(self, newX, newY):
         if self.x == newX and self.y == newY:
@@ -139,20 +151,20 @@ class Unit():
             return True
         else:
             return False
-        '''dx = abs(self.x - newX)
-        dy = abs(self.y - newY)
-        if dx+dy > self.weapon.range:
-            return False
-        else:
-            return True'''
     
     def take_damage(self, damage):
         if damage > 0:
-            self.currentHP -= damage
+            #self.currentHP -= damage
+            self.undealt_damage = damage
+    
+    def damage_tick(self):
+        if self.undealt_damage > 0:
+            self.currentHP -= 1
+            self.undealt_damage -= 1
         if self.currentHP <= 0:
             self.dead = True
             self.currentHP = 0
-        print("status {}: hp {}".format(self.name,self.currentHP))
+        #print("status {}: hp {}".format(self.name,self.currentHP))
     
     def add_exp(self, enemyLevel, kill=0):
         if enemyLevel == 0:

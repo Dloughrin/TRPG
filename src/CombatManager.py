@@ -42,7 +42,7 @@ class CombatManager():
     
     # For A*
     def update_cost_map(self,terrain,sprites):
-        print("updating")
+        #print("updating")
         tmap = []
         x = 0
         for row in terrain:
@@ -123,7 +123,7 @@ class CombatManager():
             #print(locations[x],npc.move_map[x])
             for coord in line:
                 if coord == 'c' and npc.can_move_move(x,y):
-                    print(coord)
+                    #print(coord)
                     for unit in self.characters:
                         if unit.x == x and unit.y == y:
                             npca = npc.attack(unit)
@@ -135,7 +135,7 @@ class CombatManager():
             x+=1
             
         
-        print(in_range_units.__len__())
+        #print(in_range_units.__len__())
         if in_range_units.__len__() > 0:
             in_range_units = sorted(in_range_units,key=lambda x: x["prio"], reverse=True)
             rangeI = 0
@@ -185,14 +185,14 @@ class CombatManager():
         ndset = []
         
         if CombatManager.calc_hit(defender, attacker):
-            defender.take_damage(aset[1][0])
+            #defender.take_damage(aset[1][0])
             naset.append(aset[1][0])
         else:
             naset.append(-1)
             
         if not defender.dead:
             if CombatManager.calc_hit(attacker,defender):
-                attacker.take_damage(dset[1][0])
+                #attacker.take_damage(dset[1][0])
                 ndset.append(dset[1][0])
             else:
                 ndset.append(-1)
@@ -203,19 +203,19 @@ class CombatManager():
                 break
             elif aset[0] > dset[0]:
                 if CombatManager.calc_hit(defender, attacker):
-                    defender.take_damage(aset[1][i])
+                    #defender.take_damage(aset[1][i])
                     naset.append(aset[1][i])
                 else:
                     naset.append(-1)
             else:
                 if CombatManager.calc_hit(attacker,defender):
-                    attacker.take_damage(dset[1][i])
+                    #attacker.take_damage(dset[1][i])
                     ndset.append(dset[1][i])
                 else:
                     ndset.append(-1)
             i += 1
         
-        return [naset,ndset]
+        return naset,ndset
                 
     
     @staticmethod
@@ -236,6 +236,18 @@ class CombatManager():
         return [hits,damages]
     
     @staticmethod
+    def calc_preview(target, attacker):
+        if attacker.can_attack_stationary(target.x,target.y):
+            damage = attacker.attack(target,0)
+            speed = CombatManager.calc_speed(target, attacker)
+            crit = CombatManager.calc_crit(target, attacker)
+            hit = CombatManager.calc_hit_chance(target, attacker)
+        
+            return damage, speed, crit, hit
+        else:
+            return '-', '-', '-', '-'
+    
+    @staticmethod
     def calc_speed(target, attacker):
         spd = attacker.stats["spd"] - max(0,attacker.weapon.wt-attacker.stats["str"])
         dc = target.stats["spd"] - max(0,target.weapon.wt-target.stats["str"])
@@ -250,14 +262,19 @@ class CombatManager():
     def calc_crit(target, attacker):
         crit = attacker.stats["skl"] / 2 + attacker.stats["lck"] / 5 + max(0,attacker.weapon.crit)
         cevade = target.stats["lck"]
-        return max(0,(crit - cevade))
+        return max(0,round(crit - cevade))
+    
+    
+    @staticmethod
+    def calc_hit_chance(target, attacker):
+        hit = attacker.weapon.hit + attacker.stats["skl"] * 2 + attacker.stats["lck"] / 2 + round(max(attacker.stats["str"]/10,attacker.stats["mag"]/10))
+        dodge = target.stats["spd"] / 10 + target.stats["lck"] - max(0,target.weapon.wt-target.stats["str"])
+        return round(max(0,hit-dodge))
     
     @staticmethod
     def calc_hit(target, attacker):
-        hit = attacker.weapon.hit + attacker.stats["skl"] * 2 + attacker.stats["lck"] / 2 
-        dodge = target.stats["spd"] / 10 + target.stats["lck"] - max(0,target.weapon.wt-target.stats["str"])
         rand = random.randrange(0,100) + 1
-        if rand < round(max(0,hit-dodge)):
+        if rand < CombatManager.calc_hit_chance(target, attacker):
             print("{} hit".format(attacker.name))
             return True    
         else:

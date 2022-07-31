@@ -4,14 +4,13 @@ Programmer: Dustin Loughrin
 Email: dloughrin@cnm.edu
 Purpose: Loads various menu types
 '''
+
 import pygame
 from pygame.locals import *
-#import Utility 
 from Util import *
 from multiprocessing import sys
 from Game import Game
 from Options import Options
-#from Unit import UnitGenerator 
 
 TILE_HEIGHT = 32
 TILE_WIDTH = 32
@@ -21,11 +20,9 @@ mainFont = pygame.font.Font(pygame.font.match_font('calibri',bold=True,italic=Tr
 mainClock = pygame.time.Clock()
 clockSpeed = 30
 
-
 button_color = (195, 0, 0)
 menu_color = (175, 0, 0)
 game = Game()
-
 
 def start_loop():
     try:
