@@ -228,6 +228,7 @@ class Game:
         defender = -1
         while self.running:
             clicked = False
+            
             # Process the next enemy's turn. Double check there's not an issue after
             if self.combat_manager.current_turn() == CombatManager.ENEMY_TURN and not cenemyI < self.combat_manager.enemies.__len__():
                 cenemyI = 0
@@ -247,99 +248,48 @@ class Game:
                 else:
                     break
             
+            # Wait a few seconds after a battle, then clean up post battle (remove dead units, reset values)
             if waiting > 0:
                 waiting -= self.clockSpeed/10
                 if waiting <= 0:
                     animating = False
                     waiting = 0
+                    if defender.dead:
+                        if defender in self.combat_manager.enemies:
+                            self.spriteMap[defender.x][defender.y] = 'n'
+                            attacker.add_exp(defender.level,1)
+                            self.combat_manager.enemies.remove(defender)
+                            if self.combat_manager.enemies.__len__() <= 0:
+                                # You win
+                                self.running = False
+                        elif defender in self.combat_manager.characters:
+                            self.spriteMap[defender.x][defender.y] = 'n'
+                            self.combat_manager.characters.remove(defender)
+                            if self.character == defender and self.combat_manager.characters.__len__() > 0:
+                                self.character = self.combat_manager.characters[0]
+                            elif self.character == defender:
+                                # Game over
+                                self.running = False
+                    if attacker.dead:            
+                        if attacker in self.combat_manager.characters:
+                            self.spriteMap[attacker.x][attacker.y] = 'n'
+                            self.combat_manager.characters.remove(attacker)
+                            if self.character == attacker and self.combat_manager.characters.__len__() > 0:
+                                self.character = self.combat_manager.characters[0]
+                            elif self.character == attacker:
+                                # Game over
+                                self.running = False
+                        elif attacker in self.combat_manager.enemies:
+                            self.spriteMap[attacker.x][attacker.y] = 'n'
+                            defender.add_exp(attacker.level,1)
+                            self.combat_manager.enemies.remove(attacker)
+                            if self.combat_manager.enemies.__len__() <= 0:
+                                # You win
+                                self.running = False
+                    self.combat_manager.update_cost_map(self.myTiles.tiles, self.spriteMap)
+                    attacker = -1
+                    defender = -1
             
-            # tick damage
-            if damaging:
-                if defender.undealt_damage > 0 or attacker.undealt_damage > 0:
-                    pass
-                else:
-                    damaging = False
-                    
-                if not defender == -1 and defender.undealt_damage > 0:
-                    if defender.damage_take_delay <= 0:
-                        defender.damage_take_delay = self.clockSpeed
-                        defender.damage_tick()
-                        if defender.undealt_damage == 0:
-                            if len(defender.attack_set) > 0:
-                                dam = defender.attack_set[0]
-                                attacker.take_damage(dam)
-                                defender.attack_set.remove(dam)
-                                damaging = False
-                        if defender.dead:
-                            damaging = False
-                            waiting = True
-                            attacker.undealt_damage = 0
-                            defender.undealt_damage = 0
-                            if defender in self.combat_manager.enemies:
-                                self.spriteMap[defender.x][defender.y] = 'n'
-                                attacker.add_exp(defender.level,1)
-                                self.combat_manager.enemies.remove(defender)
-                                if self.combat_manager.enemies.__len__() <= 0:
-                                    # You win
-                                    self.running = False
-                            elif defender in self.combat_manager.characters:
-                                self.spriteMap[defender.x][defender.y] = 'n'
-                                self.combat_manager.characters.remove(defender)
-                                if self.character == defender and self.combat_manager.characters.__len__() > 0:
-                                    self.character = self.combat_manager.characters[0]
-                                elif self.character == defender:
-                                    # Game over
-                                    self.running = False
-                        elif defender.undealt_damage <= 0 and defender in self.combat_manager.enemies:
-                            attacker.add_exp(defender.level,0)
-                    else:
-                        defender.damage_take_delay -= self.clockSpeed/4
-                elif not defender == -1 and (defender.undealt_damage == -1 or defender.undealt_damage == -2):
-                    if len(defender.attack_set) > 0:
-                        dam = defender.attack_set[0]
-                        attacker.take_damage(dam)
-                        defender.attack_set.remove(dam)
-                        damaging = False
-                elif not attacker == -1 and attacker.undealt_damage > 0:
-                    if attacker.damage_take_delay <= 0:
-                        attacker.damage_take_delay = self.clockSpeed
-                        attacker.damage_tick()
-                        if attacker.undealt_damage == 0:
-                            if len(attacker.attack_set) > 0:
-                                dam = attacker.attack_set[0]
-                                defender.take_damage(dam)
-                                attacker.attack_set.remove(dam)
-                                damaging = False
-                        if attacker.dead:
-                            damaging = False
-                            waiting = True
-                            attacker.undealt_damage = 0
-                            defender.undealt_damage = 0
-                            if attacker in self.combat_manager.characters:
-                                self.spriteMap[attacker.x][attacker.y] = 'n'
-                                self.combat_manager.characters.remove(attacker)
-                                if self.character == attacker and self.combat_manager.characters.__len__() > 0:
-                                    self.character = self.combat_manager.characters[0]
-                                elif self.character == attacker:
-                                    # Game over
-                                    self.running = False
-                            elif attacker in self.combat_manager.enemies:
-                                self.spriteMap[attacker.x][attacker.y] = 'n'
-                                defender.add_exp(attacker.level,1)
-                                self.combat_manager.enemies.remove(attacker)
-                                if self.combat_manager.enemies.__len__() <= 0:
-                                    # You win
-                                    self.running = False
-                        elif attacker.undealt_damage <= 0 and attacker in self.combat_manager.enemies:
-                            defender.add_exp(defender.level,0)
-                    else:
-                        attacker.damage_take_delay -= self.clockSpeed/4
-                elif not defender == -1 and (defender.undealt_damage == -1 or defender.undealt_damage == -2):
-                    if len(attacker.attack_set) > 0:
-                        dam = attacker.attack_set[0]
-                        defender.take_damage(dam)
-                        attacker.attack_set.remove(dam)
-                        damaging = False
                                 
             # Redraw map
             self.window.fill((255, 255, 255))
@@ -355,6 +305,7 @@ class Game:
                             menuSelected = 1
                         break
             
+            # Key inputs
             for event in pygame.event.get():
                 if event.type == QUIT:
                     pygame.quit()
@@ -464,6 +415,8 @@ class Game:
                                 
             # Enemy turn processing
             if self.combat_manager.current_turn() == CombatManager.ENEMY_TURN and not animating:
+                if showAttacks:
+                    showAttacks = not showAttacks
                 # If the enemy has been given move orders and is processing them, move to the next square
                 if not currentEnemy.moved and currentEnemy.moving:
                     if currentEnemy.unresolved_move.__len__() == 1 and (self.spriteMap[currentEnemy.next_square[0]][currentEnemy.next_square[1]] == 'c' or self.spriteMap[currentEnemy.next_square[0]][currentEnemy.next_square[1]] == 'e'):
@@ -471,6 +424,7 @@ class Game:
                         currentEnemy.next_square = []
                         currentEnemy.moved = True
                         currentEnemy.moving = False
+                        self.combat_manager.update_cost_map(self.myTiles.tiles, self.spriteMap)
                     else:
                         self.spriteMap[currentEnemy.x][currentEnemy.y] = 'n'
                         currentEnemy.resolve_move()
@@ -478,6 +432,8 @@ class Game:
                         self.cursor.x = currentEnemy.x * self.ADJUSTED_TILE_WIDTH
                         self.cursor.y = currentEnemy.y * self.ADJUSTED_TILE_HEIGHT
                 elif not currentEnemy.acted and currentEnemy.attacking:
+                    self.cursor.x = currentEnemy.x * self.ADJUSTED_TILE_WIDTH
+                    self.cursor.y = currentEnemy.y * self.ADJUSTED_TILE_HEIGHT
                     # If the enemy has been given attack orders, do it after having finished any movement
                     ti = 0
                     for t in self.combat_manager.characters:
@@ -487,8 +443,9 @@ class Game:
                     target = -1
                     if ti < self.combat_manager.characters.__len__():
                         target = self.combat_manager.characters[ti]
-                        currentEnemy.move_map = astar_map(self.combat_manager.map, (currentEnemy.x,currentEnemy.y), currentEnemy.mov*2, allied = True, allow_diagonal_movement = False)
-                        if currentEnemy.can_attack(target.x,target.y):
+                        self.character = target
+                        currentEnemy.move_map = astar_map(self.combat_manager.map, (currentEnemy.x,currentEnemy.y), currentEnemy.mov*2, allied = False, allow_diagonal_movement = False)
+                        if currentEnemy.can_attack_stationary(target.x,target.y):
                             #CombatManager.fight(currentEnemy,target) 
                             attacker = currentEnemy
                             defender = target
@@ -506,29 +463,6 @@ class Game:
                     currentEnemy.attacking = True
                     currentEnemy.acted = True
                     currentEnemy.moved = True
-                    '''if target in self.combat_manager.characters:
-                        if target.dead:
-                            self.spriteMap[target.x][target.y] = 'n'
-                            self.combat_manager.characters.remove(target)
-                            if self.combat_manager.characters.__len__() > 0:
-                                self.character = self.combat_manager.characters[0]
-                            else:
-                                # Game over
-                                self.running = False
-                        elif currentEnemy.dead:
-                            self.spriteMap[currentEnemy.x][currentEnemy.y] = 'n'
-                            self.combat_manager.enemies.remove(currentEnemy)
-                            # Defeated the attacking enemy, 100% exp
-                            target.add_exp(target.level,1)
-                            if self.combat_manager.enemies.__len__() <= 0:
-                                # You win
-                                self.running = False
-                        elif not target.can_attack_stationary(currentEnemy.x,currentEnemy.y):
-                            # Survived an attack, but enemy survived too. Reduced exp
-                            target.add_exp(target.level,0)
-                        else:
-                            # Survied an attack, but couldn't attack back. Heavily reduced exp
-                            target.add_exp(0,0)'''
                 elif currentEnemy.moved or currentEnemy.acted:
                     # If the unit has already attacked or moved, move to the next enemy in the list
                     currentEnemy.moved = True
@@ -572,12 +506,12 @@ class Game:
             for char in self.combat_manager.characters:
                 if char.attack_animating and not damaging:
                     animating, damaging = char.attack_animation_adjust(round(self.ADJUSTED_TILE_WIDTH/2),round(self.ADJUSTED_TILE_HEIGHT/2))
-                    if damaging == False and animating == False and (attacker.undealt_damage > 0 or defender.undealt_damage > 0):
-                        if defender.undealt_damage > 0:
+                    if damaging == False and animating == False and not attacker == -1:
+                        if defender.undealt_damage > 0 or defender.undealt_damage == -1:
                             attacker.anim_target = [defender.x,defender.y]
                             attacker.attack_animating = True
                             animating = True
-                        elif attacker.undealt_damage > 0:
+                        elif attacker.undealt_damage > 0 or attacker.undealt_damage == -1:
                             defender.anim_target = [attacker.x,attacker.y]
                             defender.attack_animating = True
                             animating = True
@@ -596,12 +530,12 @@ class Game:
             for char in self.combat_manager.enemies:
                 if char.attack_animating and not damaging:
                     animating, damaging = char.attack_animation_adjust(round(self.ADJUSTED_TILE_WIDTH/2),round(self.ADJUSTED_TILE_HEIGHT/2))
-                    if animating == False and (attacker.undealt_damage > 0 or defender.undealt_damage > 0):
-                        if attacker.undealt_damage > 0:
+                    if animating == False and not attacker == -1:
+                        if defender.undealt_damage > 0 or defender.undealt_damage == -1:
                             attacker.anim_target = [defender.x,defender.y]
                             attacker.attack_animating = True
                             animating = True
-                        elif defender.undealt_damage > 0:
+                        elif attacker.undealt_damage > 0 or attacker.undealt_damage == -1:
                             defender.anim_target = [attacker.x,attacker.y]
                             defender.attack_animating = True
                             animating = True
@@ -736,11 +670,92 @@ class Game:
                 else:
                     if self.spriteMap[cx][cy] == 'e' or animating:
                         for char in self.combat_manager.enemies:
-                            if char.x == cx and char.y == cy and not char.dead:
+                            if char.x == cx and char.y == cy:
                                 #self.draw_stats(char,1) 
                                 self.draw_battle_preview(char)
                                 # Draw preview
                                 break
+                            
+                            
+            # Animate damage taken, set up for next attack
+            if damaging:
+                if defender.undealt_damage > 0 or attacker.undealt_damage > 0:
+                    pass
+                else:
+                    damaging = False
+                    
+                if not defender == -1 and defender.undealt_damage > 0:
+                    if defender.damage_take_delay <= 0:
+                        defender.damage_take_delay = self.clockSpeed
+                        defender.damage_tick()
+                        if defender.undealt_damage == 0:
+                            if len(defender.attack_set) > 0:
+                                dam = defender.attack_set[0]
+                                attacker.take_damage(dam)
+                                defender.attack_set.remove(dam)
+                                damaging = False
+                            elif len(attacker.attack_set) > 0:
+                                dam = attacker.attack_set[0]
+                                defender.take_damage(dam)
+                                attacker.attack_set.remove(dam)
+                                damaging = False
+                        if defender.dead:
+                            damaging = False
+                            waiting = self.clockSpeed*5
+                            attacker.undealt_damage = 0
+                            defender.undealt_damage = 0
+                        elif defender.undealt_damage <= 0 and defender in self.combat_manager.enemies:
+                            attacker.add_exp(defender.level,0)
+                    else:
+                        defender.damage_take_delay -= self.clockSpeed/4
+                elif not attacker == -1 and attacker.undealt_damage > 0:
+                    if attacker.damage_take_delay <= 0:
+                        attacker.damage_take_delay = self.clockSpeed
+                        attacker.damage_tick()
+                        if attacker.undealt_damage == 0:
+                            if len(attacker.attack_set) > 0:
+                                dam = attacker.attack_set[0]
+                                defender.take_damage(dam)
+                                attacker.attack_set.remove(dam)
+                                damaging = False
+                            elif len(defender.attack_set) > 0:
+                                dam = defender.attack_set[0]
+                                attacker.take_damage(dam)
+                                defender.attack_set.remove(dam)
+                                damaging = False
+                        if attacker.dead:
+                            damaging = False
+                            waiting = self.clockSpeed*5
+                            attacker.undealt_damage = 0
+                            defender.undealt_damage = 0
+                        elif attacker.undealt_damage <= 0 and attacker in self.combat_manager.enemies:
+                            defender.add_exp(defender.level,0)
+                    else:
+                        attacker.damage_take_delay -= self.clockSpeed/4
+                elif not defender == -1 and (defender.undealt_damage == -1 or defender.undealt_damage == -2):
+                    defender.undealt_damage = 0
+                    if len(defender.attack_set) > 0:
+                        dam = defender.attack_set[0]
+                        attacker.take_damage(dam)
+                        defender.attack_set.remove(dam)
+                        damaging = False
+                    elif len(attacker.attack_set) > 0:
+                        dam = attacker.attack_set[0]
+                        defender.take_damage(dam)
+                        attacker.attack_set.remove(dam)
+                        damaging = False
+                elif not attacker == -1 and (attacker.undealt_damage == -1 or attacker.undealt_damage == -2):
+                    attacker.undealt_damage = 0
+                    if len(attacker.attack_set) > 0:
+                        dam = attacker.attack_set[0]
+                        defender.take_damage(dam)
+                        attacker.attack_set.remove(dam)
+                        damaging = False
+                    elif len(defender.attack_set) > 0:
+                        dam = defender.attack_set[0]
+                        attacker.take_damage(dam)
+                        defender.attack_set.remove(dam)
+                        damaging = False
             
             # Update display
             pygame.display.flip()

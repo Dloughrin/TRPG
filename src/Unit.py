@@ -153,7 +153,7 @@ class Unit():
             return False
     
     def take_damage(self, damage):
-        if damage > 0:
+        if damage > 0 or damage == -1:
             #self.currentHP -= damage
             self.undealt_damage = damage
     
